@@ -27,8 +27,35 @@
               <% end %>
             </div>
             <% if current_project %>
-              <div class="text-sm text-slate-400">
-                Project: <span class="text-white font-medium"><%= current_project.name %></span>
+              <div class="relative" data-controller="dropdown">
+                <button type="button" 
+                        class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        data-action="click->dropdown#toggle"
+                        data-dropdown-target="button">
+                  <span>Project:</span>
+                  <span class="text-white font-medium"><%= current_project.name %></span>
+                  <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                <div class="hidden absolute right-0 mt-2 w-56 rounded-md bg-[#252542] shadow-lg ring-1 ring-black ring-opacity-5 z-50"
+                     data-dropdown-target="menu">
+                  <div class="py-1">
+                    <% all_projects.each do |project| %>
+                      <%= button_to select_project_path(project), 
+                                    method: :post, 
+                                    class: "w-full text-left px-4 py-2 text-sm flex items-center justify-between #{project.id == current_project.id ? 'text-[#00b4d8] bg-[#1a1a2e]' : 'text-slate-300 hover:bg-[#1a1a2e] hover:text-white'} transition-colors cursor-pointer" do %>
+                        <span><%= project.name %></span>
+                        <% if project.id == current_project.id %>
+                          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </div>
+                </div>
               </div>
             <% end %>
           </div>
@@ -37,7 +64,7 @@
 
       <!-- Flash messages -->
       <% if notice %>
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4" data-controller="flash" data-flash-delay-value="3000">
           <div class="rounded-lg bg-emerald-50 p-4 border border-emerald-200">
             <div class="flex">
               <div class="flex-shrink-0">
@@ -54,7 +81,7 @@
       <% end %>
 
       <% if alert %>
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4" data-controller="flash" data-flash-delay-value="5000">
           <div class="rounded-lg bg-amber-50 p-4 border border-amber-200">
             <div class="flex">
               <div class="flex-shrink-0">

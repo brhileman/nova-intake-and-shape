@@ -8,15 +8,18 @@ module Agents
       Read `.cursor/nova-context.md` for project context if needed.
 
       1. Follow the plan precisely
-      2. Create a PR with your changes
+      2. Commit and push your changes (PR is created automatically by the platform)
       3. Provide a summary of what was done
       4. Note any issues or deviations from the plan
+
+      IMPORTANT: Do NOT run `gh pr create` - the PR is created automatically when you push.
+      You are working on a feature branch. Push to this branch and a PR will be opened against main.
 
       After completing the work:
       - Summarize what was implemented
       - List any files created or modified
       - Note any issues encountered
-      - Confirm the PR is ready for review
+      - Confirm changes are pushed and ready for review
     PROMPT
 
     # Build the transition prompt for moving from planning to execution phase
@@ -36,7 +39,7 @@ module Agents
         ## Approved Plan
         #{latest_plan&.content || "No plan available"}
 
-        Implement the plan now. Create a PR with your changes.
+        Implement the plan now. Commit and push your changes.
       PROMPT
     end
 

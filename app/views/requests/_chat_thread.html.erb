@@ -46,7 +46,7 @@
         <% cta_text, cta_helper = case req.status
                                    when "intake_review" then ["Approve Brief", "Approving will start the planning phase"]
                                    when "planning_review" then ["Approve Plan", "Approving will begin code implementation"]
-                                   when "execution_review" then ["Complete Request", "This will finalize the request"]
+                                   when "execution_review" then ["Mark Request Complete", "This will finalize the request"]
                                    else ["Approve & Continue", nil]
                                    end %>
         <div class="flex items-center justify-between gap-4">

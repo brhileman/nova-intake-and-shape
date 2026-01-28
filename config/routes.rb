@@ -8,6 +8,13 @@ Rails.application.routes.draw do
   # Nova Flow UI routes
   root "requests#index"
 
+  # Project switching
+  resources :projects, only: [] do
+    member do
+      post :select
+    end
+  end
+
   resources :requests, only: [ :index, :show, :new, :create ] do
     member do
       get :poll       # Polling endpoint - checks agent status, auto-transitions, returns Turbo Stream

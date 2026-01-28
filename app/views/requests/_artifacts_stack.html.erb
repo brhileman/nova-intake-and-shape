@@ -43,6 +43,11 @@
     <%# Execution (when complete) %>
     <% if req.execution %>
       <%= render "artifact_execution", execution: req.execution, compact: true %>
+      <% if req.status == "execution_review" %>
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-2 text-center">
+          <p class="text-xs font-medium text-amber-600">Waiting for PR review</p>
+        </div>
+      <% end %>
     <% elsif %w[intake planning].include?(req.current_phase) %>
       <div class="rounded-lg border border-dashed border-slate-300 p-3 text-center">
         <svg class="mx-auto h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
