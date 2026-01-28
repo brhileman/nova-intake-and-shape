@@ -1,6 +1,7 @@
 <%# Highlight review states that need action %>
 <% needs_action = request.status.end_with?("_review") %>
 
+<div class="mb-3">
 <%= turbo_frame_tag dom_id(request) do %>
   <%= link_to request_path(request), data: { turbo_frame: "_top" }, class: "block bg-white rounded-lg border #{needs_action ? 'border-[#00b4d8] ring-2 ring-[#00b4d8]/20' : 'border-slate-200'} shadow-sm hover:shadow-md transition-shadow" do %>
     <div class="p-5">
@@ -51,3 +52,4 @@
     </div>
   <% end %>
 <% end %>
+</div>

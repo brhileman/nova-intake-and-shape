@@ -1,62 +1,64 @@
 <%# Local: request (Request model) %>
 <% req = local_assigns[:request] || @request %>
-<%# Show artifacts with appropriate empty states %>
-<div class="space-y-4">
-  <%# Brief (from Intake) %>
-  <% if req.latest_brief %>
-    <%= render "artifact_brief", brief: req.latest_brief %>
-  <% else %>
-    <div class="rounded-xl border border-dashed border-slate-300 p-6 text-center">
-      <svg class="mx-auto h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-      <p class="mt-2 text-sm font-medium text-slate-500">Brief</p>
-      <p class="text-xs text-slate-400">Will appear after intake</p>
-    </div>
-  <% end %>
-
-  <%# Plan (from Planning) %>
-  <% if req.latest_plan %>
-    <%= render "artifact_plan", plan: req.latest_plan, request: req %>
-  <% elsif req.current_phase == "intake" %>
-    <div class="rounded-xl border border-dashed border-slate-300 p-6 text-center">
-      <svg class="mx-auto h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-      </svg>
-      <p class="mt-2 text-sm font-medium text-slate-500">Plan</p>
-      <p class="text-xs text-slate-400">Created after brief approval</p>
-    </div>
-  <% elsif req.current_phase == "planning" && !req.latest_plan %>
-    <%# In planning phase but no plan yet - show loading state %>
-    <div class="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center">
-      <div class="animate-pulse flex justify-center">
-        <div class="h-8 w-8 rounded-full bg-blue-200"></div>
+<%# Show artifacts with appropriate empty states - compact sidebar style %>
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+  <h3 class="text-sm font-medium text-slate-700 mb-3">Artifacts</h3>
+  
+  <div class="space-y-3">
+    <%# Brief (from Intake) %>
+    <% if req.latest_brief %>
+      <%= render "artifact_brief", brief: req.latest_brief, compact: true %>
+    <% else %>
+      <div class="rounded-lg border border-dashed border-slate-300 p-3 text-center">
+        <svg class="mx-auto h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="mt-1 text-xs font-medium text-slate-500">Brief</p>
+        <p class="text-xs text-slate-400">After intake</p>
       </div>
-      <p class="mt-2 text-sm font-medium text-blue-600">Planning in progress...</p>
-    </div>
-  <% end %>
+    <% end %>
 
-  <%# Execution (when complete) %>
-  <% if req.execution %>
-    <%= render "artifact_execution", execution: req.execution %>
-  <% elsif %w[intake planning].include?(req.current_phase) %>
-    <div class="rounded-xl border border-dashed border-slate-300 p-6 text-center">
-      <svg class="mx-auto h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-      </svg>
-      <p class="mt-2 text-sm font-medium text-slate-500">Execution</p>
-      <p class="text-xs text-slate-400">Code changes after plan approval</p>
-    </div>
-  <% elsif req.current_phase == "execution" && !req.execution %>
-    <%# In execution phase but not complete yet %>
-    <div class="rounded-xl border border-purple-200 bg-purple-50 p-6 text-center">
-      <div class="animate-pulse flex justify-center">
-        <div class="h-8 w-8 rounded-full bg-purple-200"></div>
+    <%# Plan (from Planning) %>
+    <% if req.latest_plan %>
+      <%= render "artifact_plan", plan: req.latest_plan, request: req, compact: true %>
+    <% elsif req.current_phase == "intake" %>
+      <div class="rounded-lg border border-dashed border-slate-300 p-3 text-center">
+        <svg class="mx-auto h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+        <p class="mt-1 text-xs font-medium text-slate-500">Plan</p>
+        <p class="text-xs text-slate-400">After brief approval</p>
       </div>
-      <p class="mt-2 text-sm font-medium text-purple-600">Executing changes...</p>
-    </div>
-  <% end %>
+    <% elsif req.current_phase == "planning" && !req.latest_plan %>
+      <div class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
+        <div class="animate-pulse flex justify-center">
+          <div class="h-5 w-5 rounded-full bg-blue-200"></div>
+        </div>
+        <p class="mt-1 text-xs font-medium text-blue-600">Planning...</p>
+      </div>
+    <% end %>
+
+    <%# Execution (when complete) %>
+    <% if req.execution %>
+      <%= render "artifact_execution", execution: req.execution, compact: true %>
+    <% elsif %w[intake planning].include?(req.current_phase) %>
+      <div class="rounded-lg border border-dashed border-slate-300 p-3 text-center">
+        <svg class="mx-auto h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+        <p class="mt-1 text-xs font-medium text-slate-500">Execution</p>
+        <p class="text-xs text-slate-400">After plan approval</p>
+      </div>
+    <% elsif req.current_phase == "execution" && !req.execution %>
+      <div class="rounded-lg border border-purple-200 bg-purple-50 p-3 text-center">
+        <div class="animate-pulse flex justify-center">
+          <div class="h-5 w-5 rounded-full bg-purple-200"></div>
+        </div>
+        <p class="mt-1 text-xs font-medium text-purple-600">Executing...</p>
+      </div>
+    <% end %>
+  </div>
 </div>

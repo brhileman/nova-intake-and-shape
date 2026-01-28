@@ -94,6 +94,7 @@ class RequestsController < ApplicationController
           turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
           turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
           turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
+          turbo_stream.update("pr_review_link_#{@request.id}", partial: "pr_review_link", locals: { request: @request }),
           turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end
@@ -168,6 +169,7 @@ class RequestsController < ApplicationController
           turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
           turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
           turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
+          turbo_stream.update("pr_review_link_#{@request.id}", partial: "pr_review_link", locals: { request: @request }),
           turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end
@@ -279,16 +281,24 @@ class RequestsController < ApplicationController
       pr_url = agent.dig("target", "prUrl")
       summary = agent["summary"]
 
-      # Log warning if PR URL is missing (common issue with GitHub permissions)
+      # Fallback: Try to extract PR URL from conversation messages if not in agent response
       if pr_url.blank?
-        Rails.logger.warn "[Nova Flow] No PR URL returned for request #{@request.id}. " \
-                          "This may indicate a GitHub permissions issue. " \
-                          "Check if the Cursor GitHub App has 'Pull Requests: Write' permission."
+        Rails.logger.info "[Nova Flow] PR URL not in agent response, attempting to extract from conversation..."
+        pr_url = extract_pr_url_from_conversation(client)
+      end
+
+      # Log warning if PR URL is still missing
+      if pr_url.blank?
+        Rails.logger.warn "[Nova Flow] No PR URL found for request #{@request.id}. " \
+                          "Checked agent.target.prUrl and conversation messages. " \
+                          "This may indicate a GitHub permissions issue or the PR wasn't created."
 
         # Check if there's error information in the agent response
         if agent["error"].present?
           Rails.logger.error "[Nova Flow] Agent error: #{agent['error']}"
         end
+      else
+        Rails.logger.info "[Nova Flow] PR URL found for request #{@request.id}: #{pr_url}"
       end
 
       @request.create_execution!(
@@ -299,5 +309,32 @@ class RequestsController < ApplicationController
       Rails.logger.error "[Nova Flow] Failed to save execution details: #{e.message}"
       # Silent fail - execution details won't be saved but request can still complete
     end
+  end
+
+  # Extract PR URL from conversation messages as a fallback
+  # The agent often mentions the PR URL in its final message
+  def extract_pr_url_from_conversation(client)
+    conv = client.get_conversation(@request.current_agent_id)
+    messages = conv["messages"] || []
+
+    # Search through messages in reverse order (most recent first)
+    # Look for GitHub PR URLs in assistant messages
+    messages.reverse_each do |msg|
+      next unless msg["type"] == "assistant_message"
+
+      text = msg["text"] || ""
+
+      # Match GitHub PR URLs - supports various formats:
+      # https://github.com/owner/repo/pull/123
+      # https://github.com/owner/repo/pull/123/files
+      # https://github.com/owner/repo/pull/123#discussion_r123456
+      pr_match = text.match(%r{https://github\.com/[^/]+/[^/]+/pull/\d+})
+      return pr_match[0] if pr_match
+    end
+
+    nil
+  rescue CursorApi::Client::Error => e
+    Rails.logger.error "[Nova Flow] Failed to fetch conversation for PR extraction: #{e.message}"
+    nil
   end
 end

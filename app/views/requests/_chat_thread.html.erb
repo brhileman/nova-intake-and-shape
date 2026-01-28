@@ -1,28 +1,32 @@
 <%# Local: request (Request model), conversation (Array of messages) %>
 <% req = local_assigns[:request] || @request %>
 <% conv = local_assigns[:conversation] || @conversation || [] %>
-<div class="bg-white rounded-lg border border-slate-200 shadow-sm" data-controller="chat">
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[calc(100vh-8rem)]" data-controller="chat">
   <%# Header %>
-  <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-    <div class="flex items-center gap-2">
-      <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-      </svg>
-      <h3 class="text-sm font-semibold text-slate-900">
-        <%= req.current_phase.capitalize %> Conversation
-      </h3>
+  <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <div>
+      <h1 class="text-lg font-semibold text-slate-900">
+        <% if req.generated_title.present? %>
+          <%= req.generated_title %>
+        <% else %>
+          <%= req.original_input.truncate(60) %>
+        <% end %>
+      </h1>
+      <p class="text-sm text-slate-500 mt-0.5">
+        <%= req.current_phase.capitalize %> Phase
+      </p>
     </div>
   </div>
 
-  <%# Messages %>
-  <div class="h-96 overflow-y-auto p-4 space-y-4" data-chat-target="messages">
+  <%# Messages - scrollable area %>
+  <div class="flex-1 overflow-y-auto p-5 space-y-4" data-chat-target="messages">
     <% if conv.empty? %>
       <div class="flex items-center justify-center h-full">
         <div class="text-center">
-          <svg class="mx-auto h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          <svg class="mx-auto h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
-          <p class="mt-2 text-sm text-slate-500">No messages yet</p>
+          <p class="mt-3 text-sm text-slate-500">No messages yet</p>
           <p class="text-xs text-slate-400">Waiting for agent response...</p>
         </div>
       </div>
@@ -33,24 +37,65 @@
     <% end %>
   </div>
 
-  <%# Message Input %>
-  <% unless req.status == "completed" %>
-    <div class="px-4 py-3 border-t border-slate-200">
-      <%= form_with url: comment_request_path(req), 
-                    method: :post, 
-                    class: "flex items-end gap-3",
-                    data: { controller: "form", action: "turbo:submit-start->form#disable turbo:submit-end->form#enable" } do |f| %>
-        <div class="flex-1">
-          <%= f.text_area :message, 
-              rows: 2,
-              placeholder: "Type your message...",
-              class: "block w-full rounded-lg border-slate-300 shadow-sm focus:border-[#00b4d8] focus:ring-[#00b4d8] text-sm resize-none",
-              data: { chat_target: "input", action: "keydown.enter->chat#submitOnEnter" } %>
+  <%# Bottom section - Action CTA and/or Message Input %>
+  <div class="border-t border-slate-200 bg-slate-50">
+    <%# Approval CTA - shown when in review state %>
+    <% if req.status.end_with?("_review") %>
+      <div id="chat_approval_cta_<%= req.id %>" class="px-5 py-3 border-b border-slate-200">
+        <%# Phase-specific CTA text and helper %>
+        <% cta_text, cta_helper = case req.status
+                                   when "intake_review" then ["Approve Brief", "Approving will start the planning phase"]
+                                   when "planning_review" then ["Approve Plan", "Approving will begin code implementation"]
+                                   when "execution_review" then ["Complete Request", "This will finalize the request"]
+                                   else ["Approve & Continue", nil]
+                                   end %>
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-700">Ready for review</p>
+            <% if cta_helper %>
+              <p class="text-xs text-slate-500"><%= cta_helper %></p>
+            <% end %>
+          </div>
+          <%= button_to approve_request_path(req), 
+              method: :post,
+              data: { turbo_stream: true },
+              class: "shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5" do %>
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <%= cta_text %>
+          <% end %>
         </div>
-        <%= f.submit "Send", 
-            class: "rounded-lg bg-[#00b4d8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0096b4] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
-            data: { form_target: "submit" } %>
-      <% end %>
-    </div>
-  <% end %>
+      </div>
+    <% elsif req.status == "completed" %>
+      <div class="px-5 py-3 bg-emerald-50">
+        <div class="flex items-center gap-2">
+          <svg class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p class="text-sm font-medium text-emerald-700">Request completed</p>
+        </div>
+      </div>
+    <% end %>
+
+    <%# Message Input - shown unless completed %>
+    <% unless req.status == "completed" %>
+      <div class="px-4 py-3">
+        <%= form_with url: comment_request_path(req), 
+                      method: :post, 
+                      class: "flex items-center gap-3",
+                      data: { controller: "form", action: "turbo:submit-start->form#disable turbo:submit-end->form#enable" } do |f| %>
+          <div class="flex-1 relative">
+            <%= f.text_field :message, 
+                placeholder: "Add a comment or ask a question...",
+                class: "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00b4d8]/20 focus:border-[#00b4d8]",
+                data: { chat_target: "input" } %>
+          </div>
+          <%= f.submit "Send", 
+              class: "px-4 py-2 text-sm font-medium text-white bg-[#00b4d8] rounded-lg hover:bg-[#0096b4] transition-colors cursor-pointer disabled:opacity-50",
+              data: { form_target: "submit" } %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
 </div>

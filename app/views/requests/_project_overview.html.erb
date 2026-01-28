@@ -1,129 +1,53 @@
 <%# Local: request (Request model) %>
 <% req = local_assigns[:request] || @request %>
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
   <%# Header with Original Request collapsible %>
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-semibold text-slate-900">Request Overview</h2>
-    <details class="group">
-      <summary class="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700">
-        <span>Original Request</span>
-        <svg class="h-3.5 w-3.5 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+  <details class="group">
+    <summary class="flex items-center justify-between cursor-pointer">
+      <h3 class="text-sm font-medium text-slate-700">Original Request</h3>
+      <svg class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </summary>
+    <div class="mt-3 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 whitespace-pre-wrap">
+      <%= req.original_input %>
+    </div>
+  </details>
+
+  <%# User Story - shown if available %>
+  <% if req.request_type.blank? || req.request_type != "fix" %>
+    <% if req.user_story_action.present? %>
+      <div class="mt-4 pt-4 border-t border-slate-100">
+        <h3 class="text-sm font-medium text-slate-700 mb-2">User Story</h3>
+        <div class="bg-slate-50 rounded-lg px-3 py-2 text-sm space-y-0.5">
+          <p><span class="text-slate-500">As a</span> <%= req.user_story_persona %></p>
+          <p><span class="text-slate-500">I want</span> <%= req.user_story_action %></p>
+          <p><span class="text-slate-500">So that</span> <%= req.user_story_outcome %></p>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%# Bug Summary - for fix requests %>
+  <% if req.request_type == "fix" && req.bug_summary.present? %>
+    <div class="mt-4 pt-4 border-t border-slate-100">
+      <h3 class="text-sm font-medium text-slate-700 mb-2">Bug Summary</h3>
+      <p class="text-sm text-slate-600"><%= req.bug_summary %></p>
+    </div>
+  <% end %>
+
+  <%# PR Link %>
+  <% if req.execution&.pr_url.present? %>
+    <div class="mt-4 pt-4 border-t border-slate-100">
+      <h3 class="text-sm font-medium text-slate-700 mb-2">Pull Request</h3>
+      <%= link_to req.execution.pr_url, 
+          target: "_blank", 
+          class: "text-blue-600 hover:underline flex items-center gap-1 text-sm" do %>
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
         </svg>
-      </summary>
-      <div class="absolute right-5 mt-2 p-3 bg-slate-50 rounded-lg text-sm text-slate-700 whitespace-pre-wrap max-w-md border border-slate-200 shadow-sm z-10">
-        <%= req.original_input %>
-      </div>
-    </details>
-  </div>
-
-  <%# Main grid - 2 columns on md+, single column on mobile %>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-    <%# Title - spans full width since it can be long %>
-    <div class="md:col-span-2 flex items-start gap-3">
-      <span class="text-sm font-medium text-slate-500 w-20 shrink-0 pt-0.5">Title</span>
-      <div class="flex-1 min-w-0">
-        <% if req.generated_title.present? %>
-          <p class="text-slate-900 font-medium truncate"><%= req.generated_title %></p>
-        <% elsif req.current_phase == "intake" %>
-          <%= render "empty_state", message: "Title will be generated", phase: "intake approval" %>
-        <% else %>
-          <p class="text-slate-400 italic text-sm">Not extracted from brief</p>
-        <% end %>
-      </div>
+        View on GitHub
+      <% end %>
     </div>
-
-    <%# Type Badge %>
-    <div class="flex items-start gap-3">
-      <span class="text-sm font-medium text-slate-500 w-20 shrink-0 pt-0.5">Type</span>
-      <div class="flex-1">
-        <% if req.request_type.present? %>
-          <% badge_color = case req.request_type
-                           when "new_feature" then "bg-emerald-100 text-emerald-800"
-                           when "update" then "bg-blue-100 text-blue-800"
-                           when "fix" then "bg-red-100 text-red-800"
-                           else "bg-slate-100 text-slate-800"
-                           end %>
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= badge_color %>">
-            <%= req.request_type.humanize %>
-          </span>
-        <% else %>
-          <%= render "empty_state", message: "Pending classification", phase: "intake" %>
-        <% end %>
-      </div>
-    </div>
-
-    <%# Estimate %>
-    <div class="flex items-start gap-3">
-      <span class="text-sm font-medium text-slate-500 w-20 shrink-0 pt-0.5">Estimate</span>
-      <div class="flex-1">
-        <% if req.estimate_days.present? %>
-          <p class="text-slate-900 text-sm"><%= req.estimate_days %> dev days</p>
-        <% elsif %w[intake planning].include?(req.current_phase) %>
-          <%= render "empty_state", message: "Estimate pending", phase: "planning approval" %>
-        <% else %>
-          <p class="text-slate-400 italic text-sm">Not provided</p>
-        <% end %>
-      </div>
-    </div>
-
-    <%# User Story - spans full width for multi-line content %>
-    <% if req.request_type.blank? || req.request_type != "fix" %>
-      <div class="md:col-span-2 flex items-start gap-3">
-        <span class="text-sm font-medium text-slate-500 w-20 shrink-0 pt-0.5">User Story</span>
-        <div class="flex-1">
-          <% if req.user_story_action.present? %>
-            <div class="bg-slate-50 rounded-lg px-3 py-2 text-sm space-y-0.5">
-              <p><strong class="text-slate-600">As a</strong> <%= req.user_story_persona %></p>
-              <p><strong class="text-slate-600">I want</strong> <%= req.user_story_action %></p>
-              <p><strong class="text-slate-600">So that</strong> <%= req.user_story_outcome %></p>
-            </div>
-          <% elsif req.current_phase == "intake" %>
-            <%= render "empty_state", message: "User story being defined", phase: "intake approval" %>
-          <% else %>
-            <p class="text-slate-400 italic text-sm">Not extracted from brief</p>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
-
-    <%# Bug Summary - for fix requests, spans full width %>
-    <% if req.request_type == "fix" %>
-      <div class="md:col-span-2 flex items-start gap-3">
-        <span class="text-sm font-medium text-slate-500 w-20 shrink-0 pt-0.5">Bug Summary</span>
-        <div class="flex-1">
-          <% if req.bug_summary.present? %>
-            <p class="text-slate-700 text-sm"><%= req.bug_summary %></p>
-          <% elsif req.current_phase == "intake" %>
-            <%= render "empty_state", message: "Bug details being gathered", phase: "intake approval" %>
-          <% else %>
-            <p class="text-slate-400 italic text-sm">Not extracted from brief</p>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
-
-    <%# PR Link %>
-    <div class="md:col-span-2 flex items-start gap-3">
-      <span class="text-sm font-medium text-slate-500 w-20 shrink-0 pt-0.5">Pull Request</span>
-      <div class="flex-1">
-        <% if req.execution&.pr_url.present? %>
-          <%= link_to req.execution.pr_url, req.execution.pr_url, 
-              target: "_blank", 
-              class: "text-blue-600 hover:underline flex items-center gap-1 text-sm" do %>
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            View on GitHub
-          <% end %>
-        <% elsif req.current_phase == "execution" && req.status.end_with?("_in_progress") %>
-          <%= render "empty_state", message: "PR being created...", phase: nil %>
-        <% elsif %w[intake planning].include?(req.current_phase) %>
-          <%= render "empty_state", message: "PR created during execution", phase: "execution" %>
-        <% else %>
-          <p class="text-slate-400 italic text-sm">No PR created</p>
-        <% end %>
-      </div>
-    </div>
-  </div>
+  <% end %>
 </div>
