@@ -115,9 +115,9 @@ class RequestsController < ApplicationController
 
     # Send to agent
     agent_class = case @request.current_phase
-                  when "intake" then Agents::IntakeAgent
-                  when "planning" then Agents::PlanningAgent
-                  when "execution" then Agents::ExecutionAgent
+    when "intake" then Agents::IntakeAgent
+    when "planning" then Agents::PlanningAgent
+    when "execution" then Agents::ExecutionAgent
     end
 
     if agent_class && @request.current_agent_id

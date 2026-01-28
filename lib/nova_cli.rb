@@ -250,13 +250,13 @@ class NovaCli < Thor
 
     # Determine which agent class based on current phase
     agent_class = case request.current_phase
-                  when "intake" then Agents::IntakeAgent
-                  when "planning" then Agents::PlanningAgent
-                  when "execution" then Agents::ExecutionAgent
-                  else
-                    puts "Cannot send comment in phase: #{request.current_phase}"
-                    return
-                  end
+    when "intake" then Agents::IntakeAgent
+    when "planning" then Agents::PlanningAgent
+    when "execution" then Agents::ExecutionAgent
+    else
+      puts "Cannot send comment in phase: #{request.current_phase}"
+      return
+    end
 
     puts "Sending comment to agent..."
     agent = agent_class.new(request)
