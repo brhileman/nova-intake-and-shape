@@ -1,16 +1,15 @@
 <%# Local: request (Request model), conversation (Array of messages) %>
 <% req = local_assigns[:request] || @request %>
 <% conv = local_assigns[:conversation] || @conversation || [] %>
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[calc(100vh-8rem)]" data-controller="chat">
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[calc(100vh-10.5rem)]" data-controller="chat">
   <%# Header %>
   <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
     <div>
       <h1 class="text-lg font-semibold text-slate-900">
-        <% if req.generated_title.present? %>
-          <%= req.generated_title %>
-        <% else %>
-          <%= req.original_input.truncate(60) %>
+        <% if req.request_number %>
+          <span class="text-slate-400 font-normal">REQ-<%= req.request_number %>:</span>
         <% end %>
+        <%= req.display_title %>
       </h1>
       <p class="text-sm text-slate-500 mt-0.5">
         <%= req.current_phase.capitalize %> Phase

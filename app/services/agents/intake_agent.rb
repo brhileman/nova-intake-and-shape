@@ -46,6 +46,8 @@ module Agents
 
       Once clarified, provide:
 
+      **Recommended Title:** [A clear, concise title for this request - 5-10 words that summarize the work]
+
       **Type:** [new | update | fix]
 
       [For new/update - required:]

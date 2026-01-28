@@ -221,6 +221,8 @@ class RequestsController < ApplicationController
           @request.complete_planning!
         when "execution_in_progress"
           @request.complete_execution!
+          # Save execution details (including PR URL) immediately so it shows in execution_review
+          save_execution_from_agent
         end
         @request.reload
       end
@@ -273,6 +275,8 @@ class RequestsController < ApplicationController
 
   def save_execution_from_agent
     return unless @request.current_agent_id
+    # Skip if execution already exists (e.g., already saved when entering execution_review)
+    return if @request.execution.present?
 
     begin
       client = CursorApi::Client.new

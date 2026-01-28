@@ -8,7 +8,8 @@ class BriefExtractor
     persona: /\*\*As a\*\*\s*(.+?)(?=\n|\*\*I want)/im,
     action: /\*\*I want\*\*\s*(.+?)(?=\n|\*\*So that)/im,
     outcome: /\*\*So that\*\*\s*(.+?)(?=\n\n|\z)/im,
-    bug_summary: /\*\*Bug Summary:\*\*\s*(.+?)(?=\n)/i
+    bug_summary: /\*\*Bug Summary:\*\*\s*(.+?)(?=\n)/i,
+    recommended_title: /\*\*Recommended Title:\*\*\s*(.+?)(?=\n)/i
   }.freeze
 
   def initialize(content)
@@ -48,10 +49,15 @@ class BriefExtractor
   end
 
   def generate_title
-    # Try to generate a title from the action or bug summary
+    # Priority 1: Use the agent's recommended title if provided
+    recommended = extract_field(:recommended_title)
+    return summarize_text(recommended, 80) if recommended.present?
+
+    # Priority 2: Generate from action (for new/update requests)
     action = extract_field(:action)
     return summarize_text(action, 60) if action.present?
 
+    # Priority 3: Generate from bug summary (for fix requests)
     bug = extract_field(:bug_summary)
     return "Fix: #{summarize_text(bug, 50)}" if bug.present?
 

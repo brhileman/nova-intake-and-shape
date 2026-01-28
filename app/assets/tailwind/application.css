@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* LaunchPad Lab Brand Colors */
 @theme {

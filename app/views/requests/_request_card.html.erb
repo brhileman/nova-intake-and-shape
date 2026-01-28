@@ -8,7 +8,10 @@
       <div class="flex items-start justify-between gap-4">
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-[#1a1a2e] truncate">
-            <%= request.original_input.truncate(80) %>
+            <% if request.request_number %>
+              <span class="text-slate-400 font-normal">REQ-<%= request.request_number %>:</span>
+            <% end %>
+            <%= request.display_title.truncate(70) %>
           </p>
           <div class="mt-2 flex flex-wrap items-center gap-2">
             <%# Status badge %>

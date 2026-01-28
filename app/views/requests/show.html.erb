@@ -10,15 +10,8 @@
   
   <%# Left Column - Conversation (main content) %>
   <div class="flex-1 min-w-0">
-    <div id="chat_thread_<%= @request.id %>">
-      <%= render "chat_thread", request: @request, conversation: @conversation %>
-    </div>
-  </div>
-
-  <%# Right Column - Properties Sidebar %>
-  <div class="w-full lg:w-80 flex-shrink-0 space-y-4">
     <%# Back link %>
-    <div>
+    <div class="mb-4">
       <%= link_to requests_path, class: "inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700" do %>
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -27,6 +20,13 @@
       <% end %>
     </div>
 
+    <div id="chat_thread_<%= @request.id %>">
+      <%= render "chat_thread", request: @request, conversation: @conversation %>
+    </div>
+  </div>
+
+  <%# Right Column - Properties Sidebar %>
+  <div class="w-full lg:w-80 flex-shrink-0 space-y-4 lg:pt-10">
     <%# Phase Stepper - wrapped in div for Turbo Stream replacement %>
     <div id="phase_stepper_<%= @request.id %>">
       <%= render "phase_stepper", request: @request %>

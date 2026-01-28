@@ -13,6 +13,10 @@ class Request < ApplicationRecord
   enum :request_type, { new_feature: 0, update: 1, fix: 2 }, prefix: true
 
   validates :original_input, presence: true
+  validates :request_number, uniqueness: { scope: :project_id }, allow_nil: true
+
+  # Auto-assign request number on creation (scoped to project)
+  before_create :assign_request_number
 
   aasm column: :status do
     state :intake_pending, initial: true
@@ -83,6 +87,17 @@ class Request < ApplicationRecord
     status.to_s.split("_").first
   end
 
+  # Display title: prefer generated_title, fall back to original_input
+  def display_title
+    generated_title.presence || original_input.truncate(60)
+  end
+
+  # Formatted display title with request number prefix
+  def numbered_title
+    number_prefix = request_number ? "REQ-#{request_number}: " : ""
+    "#{number_prefix}#{display_title}"
+  end
+
   # Get the latest brief
   def latest_brief
     briefs.order(version: :desc).first
@@ -91,5 +106,12 @@ class Request < ApplicationRecord
   # Get the latest plan
   def latest_plan
     plans.order(version: :desc).first
+  end
+
+  private
+
+  def assign_request_number
+    max_number = project.requests.maximum(:request_number) || 0
+    self.request_number = max_number + 1
   end
 end

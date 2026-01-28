@@ -10,15 +10,8 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_28_071746) do
-  create_schema "auth"
+ActiveRecord::Schema[8.1].define(version: 2026_01_28_160000) do
   create_schema "extensions"
-  create_schema "graphql"
-  create_schema "graphql_public"
-  create_schema "pgbouncer"
-  create_schema "realtime"
-  create_schema "storage"
-  create_schema "vault"
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "extensions.pg_stat_statements"
@@ -28,78 +21,81 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_28_071746) do
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vault.supabase_vault"
 
-  create_table "briefs", force: :cascade do |t|
-    t.bigint "request_id", null: false
-    t.integer "version", default: 1
+  create_table "public.briefs", force: :cascade do |t|
     t.text "content"
     t.datetime "created_at", null: false
+    t.bigint "request_id", null: false
     t.datetime "updated_at", null: false
+    t.integer "version", default: 1
     t.index ["request_id"], name: "index_briefs_on_request_id"
   end
 
-  create_table "comments", force: :cascade do |t|
-    t.bigint "request_id", null: false
-    t.string "author_type"
+  create_table "public.comments", force: :cascade do |t|
     t.string "author_name"
+    t.string "author_type"
     t.text "content"
-    t.string "phase"
     t.datetime "created_at", null: false
+    t.string "phase"
+    t.bigint "request_id", null: false
     t.datetime "updated_at", null: false
     t.index ["request_id"], name: "index_comments_on_request_id"
   end
 
-  create_table "executions", force: :cascade do |t|
-    t.bigint "request_id", null: false
+  create_table "public.executions", force: :cascade do |t|
+    t.datetime "created_at", null: false
     t.string "pr_url"
     t.string "preview_url"
+    t.bigint "request_id", null: false
     t.text "summary"
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["request_id"], name: "index_executions_on_request_id"
   end
 
-  create_table "plans", force: :cascade do |t|
-    t.bigint "request_id", null: false
-    t.integer "version", default: 1
+  create_table "public.plans", force: :cascade do |t|
     t.text "content"
     t.datetime "created_at", null: false
+    t.bigint "request_id", null: false
     t.datetime "updated_at", null: false
+    t.integer "version", default: 1
     t.index ["request_id"], name: "index_plans_on_request_id"
   end
 
-  create_table "projects", force: :cascade do |t|
+  create_table "public.projects", force: :cascade do |t|
+    t.text "context_docs"
+    t.datetime "created_at", null: false
+    t.string "default_branch", default: "main"
+    t.boolean "environment_configured", default: false
     t.string "name", null: false
     t.string "repo_url", null: false
-    t.string "default_branch", default: "main"
-    t.text "context_docs"
-    t.boolean "environment_configured", default: false
-    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
-  create_table "requests", force: :cascade do |t|
-    t.bigint "project_id", null: false
-    t.text "original_input", null: false
-    t.string "status", default: "intake_pending"
-    t.boolean "requires_design_input", default: false
-    t.string "current_agent_id"
+  create_table "public.requests", force: :cascade do |t|
+    t.text "bug_summary"
     t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.integer "request_type", default: 0
+    t.string "current_agent_id"
+    t.decimal "estimate_days"
     t.string "generated_title"
-    t.string "user_story_persona"
+    t.text "original_input", null: false
+    t.bigint "project_id", null: false
+    t.integer "request_number"
+    t.integer "request_type", default: 0
+    t.boolean "requires_design_input", default: false
+    t.string "status", default: "intake_pending"
+    t.datetime "updated_at", null: false
     t.text "user_story_action"
     t.text "user_story_outcome"
-    t.text "bug_summary"
-    t.decimal "estimate_days"
+    t.string "user_story_persona"
+    t.index ["project_id", "request_number"], name: "index_requests_on_project_id_and_request_number", unique: true
     t.index ["project_id"], name: "index_requests_on_project_id"
     t.index ["request_type"], name: "index_requests_on_request_type"
     t.index ["status"], name: "index_requests_on_status"
   end
 
-  add_foreign_key "briefs", "requests"
-  add_foreign_key "comments", "requests"
-  add_foreign_key "executions", "requests"
-  add_foreign_key "plans", "requests"
-  add_foreign_key "requests", "projects"
+  add_foreign_key "public.briefs", "public.requests"
+  add_foreign_key "public.comments", "public.requests"
+  add_foreign_key "public.executions", "public.requests"
+  add_foreign_key "public.plans", "public.requests"
+  add_foreign_key "public.requests", "public.projects"
+
 end
