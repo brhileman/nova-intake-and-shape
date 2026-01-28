@@ -118,7 +118,7 @@ class RequestsController < ApplicationController
                   when "intake" then Agents::IntakeAgent
                   when "planning" then Agents::PlanningAgent
                   when "execution" then Agents::ExecutionAgent
-                  end
+    end
 
     if agent_class && @request.current_agent_id
       agent = agent_class.new(@request)
