@@ -19,6 +19,27 @@ module Agents
       - Confirm the PR is ready for review
     PROMPT
 
+    # Build the transition prompt for moving from planning to execution phase
+    # Used with followup() to continue the same agent
+    def build_execution_transition_prompt
+      latest_brief = @request.latest_brief
+      latest_plan = @request.latest_plan
+
+      <<~PROMPT
+        The plan has been approved. Now transition to the execution phase.
+
+        #{INSTRUCTIONS}
+
+        ## Approved Brief
+        #{latest_brief&.content || "No brief available"}
+
+        ## Approved Plan
+        #{latest_plan&.content || "No plan available"}
+
+        Implement the plan now. Create a PR with your changes.
+      PROMPT
+    end
+
     protected
 
     def auto_create_pr?

@@ -1,0 +1,53 @@
+<%# Highlight review states that need action %>
+<% needs_action = request.status.end_with?("_review") %>
+
+<%= turbo_frame_tag dom_id(request) do %>
+  <%= link_to request_path(request), data: { turbo_frame: "_top" }, class: "block bg-white rounded-lg border #{needs_action ? 'border-[#00b4d8] ring-2 ring-[#00b4d8]/20' : 'border-slate-200'} shadow-sm hover:shadow-md transition-shadow" do %>
+    <div class="p-5">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-[#1a1a2e] truncate">
+            <%= request.original_input.truncate(80) %>
+          </p>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <%# Status badge %>
+            <%= render "status_badge", status: request.status %>
+            
+            <%# Request type badge %>
+            <% if request.request_type %>
+              <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                <%= request.request_type.humanize %>
+              </span>
+            <% end %>
+            
+            <%# Design input flag %>
+            <% if request.requires_design_input? %>
+              <span class="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Design Input
+              </span>
+            <% end %>
+          </div>
+        </div>
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+      
+      <%# Debug info in development %>
+      <% if Rails.env.development? && request.current_agent_id %>
+        <p class="mt-2 text-xs text-slate-400 font-mono truncate">
+          Agent: <%= request.current_agent_id %>
+        </p>
+      <% end %>
+      
+      <p class="mt-2 text-xs text-slate-400">
+        Created <%= time_ago_in_words(request.created_at) %> ago
+      </p>
+    </div>
+  <% end %>
+<% end %>

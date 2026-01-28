@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* LaunchPad Lab Brand Colors */
+@theme {
+  /* Primary brand colors */
+  --color-primary: #1a1a2e;
+  --color-accent: #00b4d8;
+  --color-accent-hover: #0096b4;
+  
+  /* Status colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  
+  /* Neutrals */
+  --color-background: #f8fafc;
+}

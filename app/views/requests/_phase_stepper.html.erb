@@ -1,0 +1,75 @@
+<%# Local: request (Request model) %>
+<% req = local_assigns[:request] || @request %>
+<%
+  phases = [
+    { name: "Intake", states: %w[intake_pending intake_in_progress intake_review] },
+    { name: "Planning", states: %w[planning_pending planning_in_progress planning_review] },
+    { name: "Execution", states: %w[execution_pending execution_in_progress execution_review completed] }
+  ]
+  
+  current_phase_index = phases.find_index { |p| p[:states].include?(req.status) } || 0
+%>
+
+<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+  <nav aria-label="Progress">
+    <ol class="flex items-center justify-between">
+      <% phases.each_with_index do |phase, index| %>
+        <%
+          is_complete = index < current_phase_index || req.status == "completed"
+          is_current = index == current_phase_index && req.status != "completed"
+          is_future = index > current_phase_index
+        %>
+        <li class="<%= index < phases.length - 1 ? 'flex-1' : '' %> relative">
+          <div class="flex items-center">
+            <%# Circle/Icon %>
+            <div class="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full 
+                        <%= is_complete ? 'bg-emerald-500' : is_current ? 'bg-[#00b4d8]' : 'bg-slate-200' %>">
+              <% if is_complete %>
+                <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              <% elsif is_current %>
+                <span class="h-3 w-3 rounded-full bg-white"></span>
+              <% else %>
+                <span class="h-3 w-3 rounded-full bg-slate-400"></span>
+              <% end %>
+            </div>
+            
+            <%# Connector line %>
+            <% if index < phases.length - 1 %>
+              <div class="hidden sm:block flex-1 h-0.5 mx-4 
+                          <%= index < current_phase_index || (index == current_phase_index && req.status == "completed") ? 'bg-emerald-500' : 'bg-slate-200' %>">
+              </div>
+            <% end %>
+          </div>
+          
+          <%# Label %>
+          <div class="mt-2">
+            <span class="text-sm font-medium <%= is_current ? 'text-[#00b4d8]' : is_complete ? 'text-emerald-600' : 'text-slate-500' %>">
+              <%= phase[:name] %>
+            </span>
+          </div>
+        </li>
+      <% end %>
+    </ol>
+  </nav>
+  
+  <%# Current status description %>
+  <div class="mt-6 pt-4 border-t border-slate-200">
+    <div class="flex items-center gap-2">
+      <%= render "status_badge", status: req.status %>
+      <span class="text-sm text-slate-500">
+        <% case req.status %>
+        <% when /pending$/ %>
+          Waiting to start...
+        <% when /in_progress$/ %>
+          Agent is working on this phase
+        <% when /review$/ %>
+          Ready for your review
+        <% when "completed" %>
+          All phases complete!
+        <% end %>
+      </span>
+    </div>
+  </div>
+</div>

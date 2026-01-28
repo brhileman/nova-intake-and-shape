@@ -1,0 +1,81 @@
+<%# Local: request (Request model) %>
+<% req = local_assigns[:request] || @request %>
+<div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5 space-y-5">
+  <div>
+    <h3 class="text-sm font-semibold text-slate-900">Request Details</h3>
+    <p class="mt-2 text-sm text-slate-600"><%= req.original_input.truncate(200) %></p>
+  </div>
+
+  <%# Agent Working Indicator %>
+  <% if req.status.end_with?("_in_progress") %>
+    <div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
+      <div class="flex items-center gap-3">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-amber-500 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-amber-800">Agent is working...</p>
+          <p class="text-xs text-amber-600 mt-0.5">This may take a few minutes</p>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# Actions %>
+  <div class="space-y-3">
+    <% if req.status.end_with?("_review") %>
+      <%# Phase-specific CTA text and helper %>
+      <% cta_text, cta_helper = case req.status
+                                 when "intake_review" then ["Approve Brief", "This will start the planning phase"]
+                                 when "planning_review" then ["Approve Plan", "This will begin code implementation"]
+                                 when "execution_review" then ["Complete Request", "This will finalize the request"]
+                                 else ["Approve & Continue", nil]
+                                 end %>
+      <%# Approve button - prominent for review states, uses Turbo Streams for fast updates %>
+      <%= button_to approve_request_path(req), 
+          method: :post,
+          data: { turbo_stream: true },
+          class: "w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2" do %>
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <%= cta_text %>
+      <% end %>
+      <% if cta_helper %>
+        <p class="text-xs text-slate-500 text-center"><%= cta_helper %></p>
+      <% end %>
+    <% elsif req.status.end_with?("_in_progress") %>
+      <%# Check status button - manually triggers poll %>
+      <%= link_to poll_request_path(req), 
+          data: { turbo_stream: true },
+          class: "w-full rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-accent-hover transition-colors flex items-center justify-center gap-2" do %>
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Check Status
+      <% end %>
+    <% elsif req.status == "completed" %>
+      <div class="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-center">
+        <svg class="mx-auto h-8 w-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p class="mt-2 text-sm font-medium text-emerald-800">Request Completed</p>
+      </div>
+    <% end %>
+  </div>
+
+  <%# Debug info in development %>
+  <% if Rails.env.development? %>
+    <div class="pt-4 border-t border-slate-200">
+      <p class="text-xs text-slate-400 font-mono">
+        Status: <%= req.status %><br>
+        <% if req.current_agent_id %>
+          Agent ID: <%= req.current_agent_id.truncate(20) %>
+        <% end %>
+      </p>
+    </div>
+  <% end %>
+</div>

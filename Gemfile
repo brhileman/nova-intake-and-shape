@@ -35,6 +35,16 @@ gem "thruster", require: false
 gem "aasm"                    # State machine for request workflow
 gem "faraday"                 # HTTP client for Cursor API
 gem "thor"                    # CLI framework
+gem "redcarpet"               # Markdown rendering for agent responses
+
+# Asset pipeline
+gem "propshaft"
+
+# Hotwire (Turbo + Stimulus) for web UI
+gem "turbo-rails"
+gem "stimulus-rails"
+gem "importmap-rails"
+gem "tailwindcss-rails"
 
 group :development, :test do
   # Environment variables
@@ -47,4 +57,12 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+end
+
+group :test do
+  # System testing
+  gem "capybara"
+  gem "selenium-webdriver"
+  gem "webmock"            # Mock HTTP requests to Cursor API
+  gem "factory_bot_rails"  # Test fixtures
 end
