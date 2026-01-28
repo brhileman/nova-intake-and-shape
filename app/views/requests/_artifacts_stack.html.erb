@@ -1,0 +1,19 @@
+<%# Local: request (Request model) %>
+<% req = local_assigns[:request] || @request %>
+<%# Show artifacts that have been created %>
+<div class="space-y-4">
+  <%# Brief (from Intake) %>
+  <% if req.latest_brief %>
+    <%= render "artifact_brief", brief: req.latest_brief %>
+  <% end %>
+
+  <%# Plan (from Planning) %>
+  <% if req.latest_plan %>
+    <%= render "artifact_plan", plan: req.latest_plan, request: req %>
+  <% end %>
+
+  <%# Execution (when complete) %>
+  <% if req.execution %>
+    <%= render "artifact_execution", execution: req.execution %>
+  <% end %>
+</div>
