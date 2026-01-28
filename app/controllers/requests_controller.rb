@@ -38,42 +38,66 @@ class RequestsController < ApplicationController
 
   # POST /requests/:id/approve
   def approve
+    notice_message = nil
+
     case @request.status
     when "intake_in_progress"
       @request.complete_intake!
-      redirect_to @request, notice: "Intake marked complete."
+      notice_message = "Intake marked complete."
 
     when "planning_in_progress"
       @request.complete_planning!
-      redirect_to @request, notice: "Planning marked complete."
+      notice_message = "Planning marked complete."
 
     when "execution_in_progress"
       @request.complete_execution!
-      redirect_to @request, notice: "Execution marked complete."
+      notice_message = "Execution marked complete."
 
     when "intake_review"
       save_brief_from_conversation
       @request.approve_intake!
       @request.start_planning!
+      # Use followup() to continue with the same agent instead of launching a new one
       agent = Agents::PlanningAgent.new(@request)
-      agent.launch
-      redirect_to @request, notice: "Intake approved. Planning agent launched."
+      agent.followup(agent.build_planning_transition_prompt)
+      notice_message = "Intake approved. Planning phase started."
 
     when "planning_review"
       save_plan_from_conversation
       @request.approve_plan!
       @request.start_execution!
+      # Use followup() to continue with the same agent instead of launching a new one
       agent = Agents::ExecutionAgent.new(@request)
-      agent.launch
-      redirect_to @request, notice: "Plan approved. Execution agent launched."
+      agent.followup(agent.build_execution_transition_prompt)
+      notice_message = "Plan approved. Execution phase started."
 
     when "execution_review"
       save_execution_from_agent
       @request.approve_execution!
-      redirect_to @request, notice: "Execution approved. Request completed!"
+      notice_message = "Execution approved. Request completed!"
 
     else
-      redirect_to @request, alert: "Cannot approve from status: #{@request.status}"
+      respond_to do |format|
+        format.turbo_stream { head :unprocessable_entity }
+        format.html { redirect_to @request, alert: "Cannot approve from status: #{@request.status}" }
+      end
+      return
+    end
+
+    @conversation = fetch_conversation
+
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: [
+          turbo_stream.update("chat_thread_#{@request.id}", partial: "chat_thread", locals: { request: @request, conversation: @conversation }),
+          turbo_stream.update("agent_status_#{@request.id}", partial: "agent_status", locals: { request: @request }),
+          turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
+          turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
+          turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
+          turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
+        ]
+      end
+      format.html { redirect_to @request, notice: notice_message }
     end
   end
 
@@ -119,7 +143,7 @@ class RequestsController < ApplicationController
         render turbo_stream: [
           turbo_stream.update("chat_thread_#{@request.id}", partial: "chat_thread", locals: { request: @request, conversation: @conversation }),
           turbo_stream.update("agent_status_#{@request.id}", partial: "agent_status", locals: { request: @request }),
-          turbo_stream.update("request_status_value_#{@request.id}", html: "<span data-status='#{@request.status}'></span>".html_safe)
+          turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end
       format.html { redirect_to @request }
@@ -143,7 +167,8 @@ class RequestsController < ApplicationController
           turbo_stream.update("agent_status_#{@request.id}", partial: "agent_status", locals: { request: @request }),
           turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
           turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
-          turbo_stream.update("request_status_value_#{@request.id}", html: "<span data-status='#{@request.status}'></span>".html_safe)
+          turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
+          turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end
       format.html { redirect_to @request }
@@ -209,7 +234,15 @@ class RequestsController < ApplicationController
       client = CursorApi::Client.new
       conv = client.get_conversation(@request.current_agent_id)
       last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
-      @request.briefs.create!(content: last_agent_msg["text"]) if last_agent_msg
+
+      if last_agent_msg
+        content = last_agent_msg["text"]
+        @request.briefs.create!(content: content)
+
+        # Extract structured data from the brief
+        extracted = BriefExtractor.new(content).extract
+        @request.update!(extracted)
+      end
     rescue CursorApi::Client::Error
       # Silent fail - brief won't be saved
     end
@@ -222,7 +255,15 @@ class RequestsController < ApplicationController
       client = CursorApi::Client.new
       conv = client.get_conversation(@request.current_agent_id)
       last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
-      @request.plans.create!(content: last_agent_msg["text"]) if last_agent_msg
+
+      if last_agent_msg
+        content = last_agent_msg["text"]
+        @request.plans.create!(content: content)
+
+        # Extract structured data from the plan
+        extracted = PlanExtractor.new(content).extract
+        @request.update!(extracted)
+      end
     rescue CursorApi::Client::Error
       # Silent fail - plan won't be saved
     end
@@ -234,12 +275,29 @@ class RequestsController < ApplicationController
     begin
       client = CursorApi::Client.new
       agent = client.get_agent(@request.current_agent_id)
+
+      pr_url = agent.dig("target", "prUrl")
+      summary = agent["summary"]
+
+      # Log warning if PR URL is missing (common issue with GitHub permissions)
+      if pr_url.blank?
+        Rails.logger.warn "[Nova Flow] No PR URL returned for request #{@request.id}. " \
+                          "This may indicate a GitHub permissions issue. " \
+                          "Check if the Cursor GitHub App has 'Pull Requests: Write' permission."
+
+        # Check if there's error information in the agent response
+        if agent["error"].present?
+          Rails.logger.error "[Nova Flow] Agent error: #{agent['error']}"
+        end
+      end
+
       @request.create_execution!(
-        pr_url: agent.dig("target", "prUrl"),
-        summary: agent["summary"]
+        pr_url: pr_url,
+        summary: summary
       )
-    rescue CursorApi::Client::Error
-      # Silent fail - execution details won't be saved
+    rescue CursorApi::Client::Error => e
+      Rails.logger.error "[Nova Flow] Failed to save execution details: #{e.message}"
+      # Silent fail - execution details won't be saved but request can still complete
     end
   end
 end

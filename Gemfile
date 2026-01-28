@@ -35,6 +35,7 @@ gem "thruster", require: false
 gem "aasm"                    # State machine for request workflow
 gem "faraday"                 # HTTP client for Cursor API
 gem "thor"                    # CLI framework
+gem "redcarpet"               # Markdown rendering for agent responses
 
 # Asset pipeline
 gem "propshaft"

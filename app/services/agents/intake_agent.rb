@@ -2,6 +2,12 @@
 
 module Agents
   class IntakeAgent < BaseAgent
+    # IntakeAgent now creates the agent with auto_create_pr: true
+    # because the same agent persists through all phases including execution
+    def auto_create_pr?
+      true
+    end
+
     INSTRUCTIONS = <<~PROMPT
       You are an intake agent. Your job is to classify and clarify the request.
 
@@ -54,7 +60,15 @@ module Agents
 
       You may include additional context, notes, or observations that seem relevant.
 
-      Then STOP and wait for approval.
+      ## Phase Transition Rules
+
+      After presenting your clarified request summary, STOP and wait for the user's response:
+
+      - If user replies "approved", "proceed", "looks good", or similar confirmation → The intake phase is complete
+      - If user replies with ANY other response → Stay in intake mode, continue clarifying, and do NOT proceed to implementation
+
+      CRITICAL: Do not write code or begin implementation until you receive explicit approval.
+      Answering clarifying questions is NOT approval. Only explicit confirmation moves to the next phase.
     PROMPT
 
     protected

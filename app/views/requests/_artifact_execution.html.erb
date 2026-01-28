@@ -68,7 +68,7 @@
     <%# Summary %>
     <% if execution.summary.present? %>
       <div class="prose prose-sm max-w-none text-slate-700 bg-slate-50 rounded-lg p-4">
-        <%= simple_format(execution.summary) %>
+        <%= render_markdown(execution.summary) %>
       </div>
     <% end %>
   </div>

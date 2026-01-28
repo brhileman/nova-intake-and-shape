@@ -27,14 +27,25 @@
   <%# Actions %>
   <div class="space-y-3">
     <% if req.status.end_with?("_review") %>
-      <%# Approve button - prominent for review states %>
+      <%# Phase-specific CTA text and helper %>
+      <% cta_text, cta_helper = case req.status
+                                 when "intake_review" then ["Approve Brief", "This will start the planning phase"]
+                                 when "planning_review" then ["Approve Plan", "This will begin code implementation"]
+                                 when "execution_review" then ["Complete Request", "This will finalize the request"]
+                                 else ["Approve & Continue", nil]
+                                 end %>
+      <%# Approve button - prominent for review states, uses Turbo Streams for fast updates %>
       <%= button_to approve_request_path(req), 
           method: :post,
+          data: { turbo_stream: true },
           class: "w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2" do %>
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
         </svg>
-        Approve & Continue
+        <%= cta_text %>
+      <% end %>
+      <% if cta_helper %>
+        <p class="text-xs text-slate-500 text-center"><%= cta_helper %></p>
       <% end %>
     <% elsif req.status.end_with?("_in_progress") %>
       <%# Check status button - manually triggers poll %>

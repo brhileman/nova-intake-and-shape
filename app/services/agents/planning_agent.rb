@@ -98,7 +98,36 @@ module Agents
 
       ## Questions
       - [ ] [Open questions]
+
+      ## Phase Transition Rules
+
+      After presenting your implementation plan, STOP and wait for the user's response:
+
+      - If user replies "approved", "proceed", "looks good", or similar confirmation → The planning phase is complete
+      - If user replies with ANY other response → Stay in planning mode, refine the plan, and do NOT proceed to implementation
+
+      CRITICAL: Do not write code or begin implementation until you receive explicit approval.
+      Asking questions or requesting changes is NOT approval. Only explicit confirmation moves to the next phase.
     PROMPT
+
+    # Build the transition prompt for moving from intake to planning phase
+    # Used with followup() to continue the same agent
+    def build_planning_transition_prompt
+      latest_brief = @request.latest_brief
+
+      <<~PROMPT
+        The intake brief has been approved. Now transition to the planning phase.
+
+        #{INSTRUCTIONS}
+
+        ## Approved Brief
+        #{latest_brief&.content || "No brief available"}
+
+        Create a detailed implementation plan following the output format above.
+        Then STOP and wait for explicit approval (e.g., "approved", "proceed", "looks good") before implementing.
+        Any other response means stay in planning mode and refine the plan.
+      PROMPT
+    end
 
     protected
 

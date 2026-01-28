@@ -15,30 +15,34 @@
 <%# Hidden element for polling controller to detect status changes - scoped to request %>
 <div id="request_status_value_<%= @request.id %>" data-status="<%= @request.status %>" class="hidden"></div>
 
-<div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8"
+<%# Project Overview - Structured data at the top %>
+<div class="mt-6" id="project_overview_<%= @request.id %>">
+  <%= render "project_overview", request: @request %>
+</div>
+
+<div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6"
      id="polling-container-<%= @request.id %>"
      data-controller="polling"
      data-polling-url-value="<%= poll_request_path(@request) %>"
      data-polling-request-id-value="<%= @request.id %>"
      data-polling-interval-value="10000">
   
-  <%# Main content - Chat and Artifacts %>
-  <div class="lg:col-span-2 space-y-6">
-    <%# Stacked Artifacts %>
+  <%# Left Column - Artifacts %>
+  <div class="lg:col-span-1 space-y-4">
     <div id="artifacts_<%= @request.id %>">
       <%= render "artifacts_stack", request: @request %>
     </div>
-
-    <%# Chat Thread %>
-    <div id="chat_thread_<%= @request.id %>">
-      <%= render "chat_thread", request: @request, conversation: @conversation %>
+    
+    <%# Sidebar - Status and Actions (moved below artifacts on desktop) %>
+    <div id="agent_status_<%= @request.id %>">
+      <%= render "agent_status", request: @request %>
     </div>
   </div>
 
-  <%# Sidebar - Status and Actions %>
-  <div class="lg:col-span-1">
-    <div id="agent_status_<%= @request.id %>">
-      <%= render "agent_status", request: @request %>
+  <%# Right Column - Conversation Area %>
+  <div class="lg:col-span-2">
+    <div id="chat_thread_<%= @request.id %>">
+      <%= render "chat_thread", request: @request, conversation: @conversation %>
     </div>
   </div>
 </div>

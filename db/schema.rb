@@ -10,9 +10,23 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_28_051223) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_28_071746) do
+  create_schema "auth"
+  create_schema "extensions"
+  create_schema "graphql"
+  create_schema "graphql_public"
+  create_schema "pgbouncer"
+  create_schema "realtime"
+  create_schema "storage"
+  create_schema "vault"
+
   # These are extensions that must be enabled in order to support this database
+  enable_extension "extensions.pg_stat_statements"
+  enable_extension "extensions.pgcrypto"
+  enable_extension "extensions.uuid-ossp"
+  enable_extension "graphql.pg_graphql"
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "vault.supabase_vault"
 
   create_table "briefs", force: :cascade do |t|
     t.bigint "request_id", null: false
@@ -72,6 +86,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_28_051223) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "request_type", default: 0
+    t.string "generated_title"
+    t.string "user_story_persona"
+    t.text "user_story_action"
+    t.text "user_story_outcome"
+    t.text "bug_summary"
+    t.decimal "estimate_days"
     t.index ["project_id"], name: "index_requests_on_project_id"
     t.index ["request_type"], name: "index_requests_on_request_type"
     t.index ["status"], name: "index_requests_on_status"
