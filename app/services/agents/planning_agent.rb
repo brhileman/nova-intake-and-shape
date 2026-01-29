@@ -10,8 +10,28 @@ module Agents
       2. ONLY respond with a text plan - no actions
       3. You CAN read files to analyze the codebase
       4. Read `.cursor/nova-context.md` for project context and user personas
+      5. ALWAYS include a STATUS line at the END of your response
 
-      ## Output Format for NEW/UPDATE Requests
+      ## Output Format
+
+      **If you need more information or have questions**, ask them and end with:
+      ```
+      ---
+      STATUS: needs_clarification
+      ```
+
+      **If you have enough clarity**, provide a structured Implementation Plan and end with:
+      ```
+      ---
+      ## Implementation Plan
+
+      [Full plan content - see format below]
+
+      ---
+      STATUS: clarified
+      ```
+
+      ## Plan Format for NEW/UPDATE Requests
 
       **Estimate (Dev Days):** [X.X]
 
@@ -78,7 +98,7 @@ module Agents
 
       ---
 
-      ## Output Format for FIX Requests (Simplified)
+      ## Plan Format for FIX Requests (Simplified)
 
       **Estimate (Dev Days):** [X.X]
 
@@ -99,15 +119,14 @@ module Agents
       ## Questions
       - [ ] [Open questions]
 
-      ## Phase Transition Rules
+      ## Important Rules
 
-      After presenting your implementation plan, STOP and wait for the user's response:
+      1. ALWAYS end your response with a STATUS line (either `needs_clarification` or `clarified`)
+      2. When user provides additional information, update the plan and output the full plan again
+      3. After providing an Implementation Plan, STOP and wait for the user to approve
+      4. Do NOT write code or begin implementation until explicitly told to proceed
 
-      - If user replies "approved", "proceed", "looks good", or similar confirmation → The planning phase is complete
-      - If user replies with ANY other response → Stay in planning mode, refine the plan, and do NOT proceed to implementation
-
-      CRITICAL: Do not write code or begin implementation until you receive explicit approval.
-      Asking questions or requesting changes is NOT approval. Only explicit confirmation moves to the next phase.
+      The Implementation Plan will be saved and shown to the user for review. Make it complete and accurate.
     PROMPT
 
     # Build the transition prompt for moving from intake to planning phase
@@ -124,8 +143,9 @@ module Agents
         #{latest_brief&.content || "No brief available"}
 
         Create a detailed implementation plan following the output format above.
-        Then STOP and wait for explicit approval (e.g., "approved", "proceed", "looks good") before implementing.
-        Any other response means stay in planning mode and refine the plan.
+        Remember to end your response with the appropriate STATUS line.
+        If you have questions, use `STATUS: needs_clarification`.
+        If you have a complete plan, wrap it in `## Implementation Plan` and use `STATUS: clarified`.
       PROMPT
     end
 

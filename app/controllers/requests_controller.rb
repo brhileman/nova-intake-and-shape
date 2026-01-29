@@ -41,29 +41,17 @@ class RequestsController < ApplicationController
     notice_message = nil
 
     case @request.status
-    when "intake_in_progress"
-      @request.complete_intake!
-      notice_message = "Intake marked complete."
-
-    when "planning_in_progress"
-      @request.complete_planning!
-      notice_message = "Planning marked complete."
-
-    when "execution_in_progress"
-      @request.complete_execution!
-      notice_message = "Execution marked complete."
-
-    when "intake_review"
-      save_brief_from_conversation
+    when "intake_clarified"
+      # Brief is already saved when transitioning to intake_clarified
       @request.approve_intake!
       @request.start_planning!
       # Use followup() to continue with the same agent instead of launching a new one
       agent = Agents::PlanningAgent.new(@request)
       agent.followup(agent.build_planning_transition_prompt)
-      notice_message = "Intake approved. Planning phase started."
+      notice_message = "Brief approved. Planning phase started."
 
-    when "planning_review"
-      save_plan_from_conversation
+    when "planning_clarified"
+      # Plan is already saved when transitioning to planning_clarified
       @request.approve_plan!
       @request.start_execution!
       # Use followup() to continue with the same agent instead of launching a new one
@@ -128,9 +116,9 @@ class RequestsController < ApplicationController
       # Transition back to in_progress so polling resumes
       # (agent is now working on the follow-up)
       case @request.status
-      when "intake_review"
+      when "intake_needs_clarification", "intake_clarified"
         @request.revise_intake!
-      when "planning_review"
+      when "planning_needs_clarification", "planning_clarified"
         @request.revise_plan!
       when "execution_review"
         @request.revise_execution!
@@ -215,10 +203,10 @@ class RequestsController < ApplicationController
       # Agent statuses from Cursor API: "RUNNING", "FINISHED", "ERROR", etc. (uppercase)
       if agent["status"]&.upcase == "FINISHED"
         case @request.status
-        when "intake_in_progress"
-          @request.complete_intake!
-        when "planning_in_progress"
-          @request.complete_planning!
+        when "intake_in_progress", "intake_needs_clarification"
+          handle_intake_agent_finished(client)
+        when "planning_in_progress", "planning_needs_clarification"
+          handle_planning_agent_finished(client)
         when "execution_in_progress"
           @request.complete_execution!
           # Save execution details (including PR URL) immediately so it shows in execution_review
@@ -228,6 +216,80 @@ class RequestsController < ApplicationController
       end
     rescue CursorApi::Client::Error
       # Silent fail - will try again on next poll
+    end
+  end
+
+  def handle_intake_agent_finished(client)
+    conv = client.get_conversation(@request.current_agent_id)
+    last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
+    return unless last_agent_msg
+
+    content = last_agent_msg["text"]
+    detected_status = BriefExtractor.detect_status(content)
+
+    case detected_status
+    when :needs_clarification
+      @request.request_clarification! if @request.may_request_clarification?
+    when :clarified
+      # Extract and save the brief immediately
+      brief_content = BriefExtractor.extract_brief_section(content) || content
+      @request.briefs.create!(content: brief_content)
+
+      # Extract structured data
+      extracted = BriefExtractor.new(brief_content).extract
+      @request.update!(extracted)
+
+      # Transition to clarified state
+      @request.clarify_intake! if @request.may_clarify_intake?
+    else
+      # Fallback: if no status marker, check if brief section exists
+      if BriefExtractor.extract_brief_section(content).present?
+        brief_content = BriefExtractor.extract_brief_section(content)
+        @request.briefs.create!(content: brief_content)
+        extracted = BriefExtractor.new(brief_content).extract
+        @request.update!(extracted)
+        @request.clarify_intake! if @request.may_clarify_intake?
+      else
+        # No brief section found, treat as needs clarification
+        @request.request_clarification! if @request.may_request_clarification?
+      end
+    end
+  end
+
+  def handle_planning_agent_finished(client)
+    conv = client.get_conversation(@request.current_agent_id)
+    last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
+    return unless last_agent_msg
+
+    content = last_agent_msg["text"]
+    detected_status = PlanExtractor.detect_status(content)
+
+    case detected_status
+    when :needs_clarification
+      @request.request_clarification! if @request.may_request_clarification?
+    when :clarified
+      # Extract and save the plan immediately
+      plan_content = PlanExtractor.extract_plan_section(content) || content
+      @request.plans.create!(content: plan_content)
+
+      # Extract structured data
+      extracted = PlanExtractor.new(plan_content).extract
+      @request.update!(extracted)
+
+      # Transition to clarified state
+      @request.clarify_planning! if @request.may_clarify_planning?
+    else
+      # Fallback: if no status marker, check if plan section exists
+      if PlanExtractor.extract_plan_section(content).present?
+        plan_content = PlanExtractor.extract_plan_section(content)
+        @request.plans.create!(content: plan_content)
+        extracted = PlanExtractor.new(plan_content).extract
+        @request.update!(extracted)
+        @request.clarify_planning! if @request.may_clarify_planning?
+      else
+        # No plan section found, treat as needs clarification
+        @request.request_clarification! if @request.may_request_clarification?
+      end
     end
   end
 

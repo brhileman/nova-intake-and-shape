@@ -12,8 +12,33 @@ class BriefExtractor
     recommended_title: /\*\*Recommended Title:\*\*\s*(.+?)(?=\n)/i
   }.freeze
 
+  # Status markers that the agent outputs
+  STATUS_PATTERN = /STATUS:\s*(needs_clarification|clarified)/i
+  # Extract the Request Brief section
+  BRIEF_SECTION_PATTERN = /## Request Brief\s*\n(.*?)(?=\n---\s*\nSTATUS:|\z)/im
+
   def initialize(content)
     @content = content || ""
+  end
+
+  # Detect the status from the agent's response
+  # @return [Symbol] :needs_clarification, :clarified, or :unknown
+  def self.detect_status(content)
+    return :unknown if content.blank?
+
+    match = content.match(STATUS_PATTERN)
+    return :unknown unless match
+
+    match[1].downcase.to_sym
+  end
+
+  # Extract just the Request Brief section from the full response
+  # @return [String, nil] The brief content or nil if not found
+  def self.extract_brief_section(content)
+    return nil if content.blank?
+
+    match = content.match(BRIEF_SECTION_PATTERN)
+    match&.[](1)&.strip
   end
 
   # Extract all structured data from the brief content

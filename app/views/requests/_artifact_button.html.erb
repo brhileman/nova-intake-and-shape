@@ -1,0 +1,180 @@
+<%# 
+  Artifact button with status indicator that opens a modal
+  Locals: artifact_type ("brief" or "plan"), status (:not_started, :drafted, :approved), artifact (Brief/Plan or nil), request
+%>
+<%
+  artifact_type = local_assigns[:artifact_type] || "brief"
+  status = local_assigns[:status] || :not_started
+  artifact = local_assigns[:artifact]
+  req = local_assigns[:request] || @request
+
+  # Status styling
+  status_config = case status
+  when :not_started
+    { 
+      label: "Not Started", 
+      bg: "bg-slate-100", 
+      text: "text-slate-500",
+      border: "border-slate-200",
+      icon_bg: "bg-slate-100",
+      icon_color: "text-slate-400",
+      dot_color: "bg-slate-400"
+    }
+  when :drafted
+    { 
+      label: "Drafted", 
+      bg: "bg-amber-50", 
+      text: "text-amber-700",
+      border: "border-amber-200",
+      icon_bg: "bg-amber-100",
+      icon_color: "text-amber-600",
+      dot_color: "bg-amber-500"
+    }
+  when :approved
+    { 
+      label: "Approved", 
+      bg: "bg-emerald-50", 
+      text: "text-emerald-700",
+      border: "border-emerald-200",
+      icon_bg: "bg-emerald-100",
+      icon_color: "text-emerald-600",
+      dot_color: "bg-emerald-500"
+    }
+  end
+
+  # Artifact type config
+  type_config = case artifact_type
+  when "brief"
+    {
+      title: "Brief",
+      subtitle: "Request summary from intake",
+      icon_path: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    }
+  when "plan"
+    {
+      title: "Plan",
+      subtitle: "Implementation plan",
+      icon_path: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+    }
+  end
+
+  modal_id = "#{artifact_type}_modal_#{req.id}"
+  is_clickable = artifact.present?
+%>
+
+<div data-controller="modal">
+  <%# Button %>
+  <% if is_clickable %>
+    <button type="button"
+            data-action="click->modal#open"
+            class="w-full rounded-lg border <%= status_config[:border] %> <%= status_config[:bg] %> p-3 text-left transition-all hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#00b4d8]/20 group">
+  <% else %>
+    <div class="w-full rounded-lg border border-dashed border-slate-300 p-3 opacity-60">
+  <% end %>
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <%# Icon %>
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg <%= status_config[:icon_bg] %>">
+          <svg class="h-4 w-4 <%= status_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<%= type_config[:icon_path] %>" />
+          </svg>
+        </div>
+        <%# Title & Status %>
+        <div>
+          <div class="flex items-center gap-2">
+            <h4 class="text-sm font-medium text-slate-900"><%= type_config[:title] %></h4>
+            <%# Status badge %>
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium <%= status_config[:bg] %> <%= status_config[:text] %>">
+              <span class="h-1.5 w-1.5 rounded-full <%= status_config[:dot_color] %>"></span>
+              <%= status_config[:label] %>
+            </span>
+          </div>
+          <p class="text-xs text-slate-500"><%= type_config[:subtitle] %></p>
+        </div>
+      </div>
+      <%# Arrow indicator (only if clickable) %>
+      <% if is_clickable %>
+        <svg class="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      <% end %>
+    </div>
+  <% if is_clickable %>
+    </button>
+  <% else %>
+    </div>
+  <% end %>
+
+  <%# Modal (only render if artifact exists) %>
+  <% if artifact %>
+    <dialog id="<%= modal_id %>" 
+            data-modal-target="dialog"
+            data-action="click->modal#backdropClick"
+            class="fixed z-50 w-full max-w-2xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm m-auto">
+      <div class="flex flex-col max-h-[85vh]">
+        <%# Modal Header %>
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white rounded-t-xl">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg <%= status_config[:icon_bg] %>">
+              <svg class="h-5 w-5 <%= status_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<%= type_config[:icon_path] %>" />
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-lg font-semibold text-slate-900"><%= type_config[:title] %></h2>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium <%= status_config[:bg] %> <%= status_config[:text] %>">
+                  <span class="h-1.5 w-1.5 rounded-full <%= status_config[:dot_color] %>"></span>
+                  <%= status_config[:label] %>
+                </span>
+                <% if artifact_type == "plan" && req.requires_design_input? %>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                    Design Input Needed
+                  </span>
+                <% end %>
+              </div>
+            </div>
+          </div>
+          <button type="button"
+                  data-action="click->modal#close"
+                  class="rounded-lg p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <%# Modal Body %>
+        <div class="flex-1 overflow-y-auto p-6 bg-slate-50">
+          <% if artifact_type == "plan" && req.requires_design_input? %>
+            <div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <h3 class="text-sm font-semibold text-amber-800">Design Input Needed</h3>
+                  <p class="mt-1 text-sm text-amber-700">This plan requires design review before execution.</p>
+                </div>
+              </div>
+            </div>
+          <% end %>
+          <div class="prose prose-sm max-w-none text-slate-700 bg-white rounded-lg p-6 border border-slate-200">
+            <%= render_markdown(artifact.content) %>
+          </div>
+        </div>
+
+        <%# Modal Footer %>
+        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-white rounded-b-xl">
+          <button type="button"
+                  data-action="click->modal#close"
+                  class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+            Close
+          </button>
+        </div>
+      </div>
+    </dialog>
+  <% end %>
+</div>

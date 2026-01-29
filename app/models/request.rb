@@ -21,10 +21,12 @@ class Request < ApplicationRecord
   aasm column: :status do
     state :intake_pending, initial: true
     state :intake_in_progress
-    state :intake_review
+    state :intake_needs_clarification  # Agent asked clarifying questions
+    state :intake_clarified            # Brief extracted, ready for approval
     state :planning_pending
     state :planning_in_progress
-    state :planning_review
+    state :planning_needs_clarification  # Agent asked clarifying questions
+    state :planning_clarified            # Plan extracted, ready for approval
     state :execution_pending
     state :execution_in_progress
     state :execution_review
@@ -35,16 +37,23 @@ class Request < ApplicationRecord
       transitions from: :intake_pending, to: :intake_in_progress
     end
 
-    event :complete_intake do
-      transitions from: :intake_in_progress, to: :intake_review
+    event :request_clarification do
+      transitions from: :intake_in_progress, to: :intake_needs_clarification
+      transitions from: :planning_in_progress, to: :planning_needs_clarification
+    end
+
+    event :clarify_intake do
+      transitions from: :intake_in_progress, to: :intake_clarified
+      transitions from: :intake_needs_clarification, to: :intake_clarified
     end
 
     event :approve_intake do
-      transitions from: :intake_review, to: :planning_pending
+      transitions from: :intake_clarified, to: :planning_pending
     end
 
     event :revise_intake do
-      transitions from: :intake_review, to: :intake_in_progress
+      transitions from: :intake_clarified, to: :intake_in_progress
+      transitions from: :intake_needs_clarification, to: :intake_in_progress
     end
 
     # Planning flow
@@ -52,16 +61,18 @@ class Request < ApplicationRecord
       transitions from: :planning_pending, to: :planning_in_progress
     end
 
-    event :complete_planning do
-      transitions from: :planning_in_progress, to: :planning_review
+    event :clarify_planning do
+      transitions from: :planning_in_progress, to: :planning_clarified
+      transitions from: :planning_needs_clarification, to: :planning_clarified
     end
 
     event :approve_plan do
-      transitions from: :planning_review, to: :execution_pending
+      transitions from: :planning_clarified, to: :execution_pending
     end
 
     event :revise_plan do
-      transitions from: :planning_review, to: :planning_in_progress
+      transitions from: :planning_clarified, to: :planning_in_progress
+      transitions from: :planning_needs_clarification, to: :planning_in_progress
     end
 
     # Execution flow
@@ -85,6 +96,16 @@ class Request < ApplicationRecord
   # Helper to get current phase
   def current_phase
     status.to_s.split("_").first
+  end
+
+  # Check if request is awaiting user input (for polling logic)
+  def awaiting_user_input?
+    status.end_with?("_needs_clarification", "_clarified", "_review") || status == "completed"
+  end
+
+  # Check if request is in a review/approval state
+  def in_review_state?
+    status.end_with?("_clarified", "_review")
   end
 
   # Display title: prefer generated_title, fall back to original_input

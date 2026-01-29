@@ -38,13 +38,13 @@
 
   <%# Bottom section - Action CTA and/or Message Input %>
   <div class="border-t border-slate-200 bg-slate-50">
-    <%# Approval CTA - shown when in review state %>
-    <% if req.status.end_with?("_review") %>
+    <%# Approval CTA - shown when in clarified or review state %>
+    <% if req.in_review_state? %>
       <div id="chat_approval_cta_<%= req.id %>" class="px-5 py-3 border-b border-slate-200">
         <%# Phase-specific CTA text and helper %>
         <% cta_text, cta_helper = case req.status
-                                   when "intake_review" then ["Approve Brief", "Approving will start the planning phase"]
-                                   when "planning_review" then ["Approve Plan", "Approving will begin code implementation"]
+                                   when "intake_clarified" then ["Approve Brief", "Approving will start the planning phase"]
+                                   when "planning_clarified" then ["Approve Plan", "Approving will begin code implementation"]
                                    when "execution_review" then ["Mark Request Complete", "This will finalize the request"]
                                    else ["Approve & Continue", nil]
                                    end %>

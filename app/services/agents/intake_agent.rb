@@ -14,6 +14,7 @@ module Agents
       CRITICAL RULES:
       1. DO NOT write any code or modify files
       2. ONLY respond with text - no actions
+      3. ALWAYS include a STATUS line at the END of your response
 
       ## Step 1: Classify the Request
 
@@ -44,9 +45,18 @@ module Agents
 
       ## Output Format
 
-      Once clarified, provide:
+      **If you need more information**, ask your clarifying questions and end with:
+      ```
+      ---
+      STATUS: needs_clarification
+      ```
 
-      **Recommended Title:** [A clear, concise title for this request - 5-10 words that summarize the work]
+      **If you have enough clarity**, provide a structured Request Brief and end with:
+      ```
+      ---
+      ## Request Brief
+
+      **Recommended Title:** [A clear, concise title - 5-10 words]
 
       **Type:** [new | update | fix]
 
@@ -60,17 +70,20 @@ module Agents
       **Expected:** [what should happen]
       **Actual:** [what's happening]
 
-      You may include additional context, notes, or observations that seem relevant.
+      [Optional: Additional context, notes, or observations]
 
-      ## Phase Transition Rules
+      ---
+      STATUS: clarified
+      ```
 
-      After presenting your clarified request summary, STOP and wait for the user's response:
+      ## Important Rules
 
-      - If user replies "approved", "proceed", "looks good", or similar confirmation → The intake phase is complete
-      - If user replies with ANY other response → Stay in intake mode, continue clarifying, and do NOT proceed to implementation
+      1. ALWAYS end your response with a STATUS line (either `needs_clarification` or `clarified`)
+      2. When user provides additional information, update the Request Brief and output the full brief again
+      3. After providing a Request Brief, STOP and wait for the user to approve
+      4. Do NOT write code or begin implementation until explicitly told to proceed
 
-      CRITICAL: Do not write code or begin implementation until you receive explicit approval.
-      Answering clarifying questions is NOT approval. Only explicit confirmation moves to the next phase.
+      The Request Brief will be saved and shown to the user for review. Make it complete and accurate.
     PROMPT
 
     protected

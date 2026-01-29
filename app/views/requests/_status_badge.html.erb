@@ -5,7 +5,9 @@
     "bg-slate-100 text-slate-600"
   when /in_progress$/
     "bg-amber-100 text-amber-700 animate-pulse"
-  when /review$/
+  when /needs_clarification$/
+    "bg-yellow-100 text-yellow-700"
+  when /clarified$/, /review$/
     "bg-[#00b4d8]/10 text-[#00b4d8] font-semibold"
   when "completed"
     "bg-emerald-100 text-emerald-700"
@@ -17,10 +19,12 @@
   label = case status
   when "intake_pending" then "Intake Pending"
   when "intake_in_progress" then "Intake In Progress"
-  when "intake_review" then "Intake Review"
+  when "intake_needs_clarification" then "Needs Clarification"
+  when "intake_clarified" then "Brief Ready"
   when "planning_pending" then "Planning Pending"
   when "planning_in_progress" then "Planning In Progress"
-  when "planning_review" then "Planning Review"
+  when "planning_needs_clarification" then "Needs Clarification"
+  when "planning_clarified" then "Plan Ready"
   when "execution_pending" then "Execution Pending"
   when "execution_in_progress" then "Execution In Progress"
   when "execution_review" then "Execution Review"
@@ -30,11 +34,15 @@
 %>
 
 <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium <%= badge_classes %>">
-  <% if status.end_with?("_review") %>
+  <% if status.end_with?("_clarified", "_review") %>
     <span class="relative flex h-2 w-2">
       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00b4d8] opacity-75"></span>
       <span class="relative inline-flex rounded-full h-2 w-2 bg-[#00b4d8]"></span>
     </span>
+  <% elsif status.end_with?("_needs_clarification") %>
+    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
   <% elsif status.end_with?("_in_progress") %>
     <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
