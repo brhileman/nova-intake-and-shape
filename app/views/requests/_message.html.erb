@@ -1,6 +1,8 @@
 <%
   is_user = message["type"] == "user_message"
-  text = message["text"] || ""
+  raw_text = message["text"] || ""
+  # For user messages, extract just the user's actual input (hide system prompts)
+  text = is_user ? display_message_text(raw_text) : raw_text
 %>
 
 <div class="flex <%= is_user ? 'justify-end' : 'justify-start' %>">
