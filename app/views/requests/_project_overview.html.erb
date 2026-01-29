@@ -14,20 +14,6 @@
     </div>
   </details>
 
-  <%# User Story - shown if available %>
-  <% if req.request_type.blank? || req.request_type != "fix" %>
-    <% if req.user_story_action.present? %>
-      <div class="mt-4 pt-4 border-t border-slate-100">
-        <h3 class="text-sm font-medium text-slate-700 mb-2">User Story</h3>
-        <div class="bg-slate-50 rounded-lg px-3 py-2 text-sm space-y-0.5">
-          <p><span class="text-slate-500">As a</span> <%= req.user_story_persona %></p>
-          <p><span class="text-slate-500">I want</span> <%= req.user_story_action %></p>
-          <p><span class="text-slate-500">So that</span> <%= req.user_story_outcome %></p>
-        </div>
-      </div>
-    <% end %>
-  <% end %>
-
   <%# Bug Summary - for fix requests %>
   <% if req.request_type == "fix" && req.bug_summary.present? %>
     <div class="mt-4 pt-4 border-t border-slate-100">

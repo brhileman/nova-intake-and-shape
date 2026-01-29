@@ -1,14 +1,53 @@
 <% compact = local_assigns[:compact] || false %>
+<% status = local_assigns[:status] || :in_progress %>
+<%
+  # Status-based styling for execution
+  execution_config = case status
+  when :completed
+    { 
+      bg: "bg-emerald-50", 
+      border: "border-emerald-200",
+      icon_bg: "bg-emerald-100",
+      icon_color: "text-emerald-600",
+      label: "Complete",
+      label_bg: "bg-emerald-50",
+      label_text: "text-emerald-700",
+      dot_color: "bg-emerald-500"
+    }
+  else # :in_progress or :not_started
+    { 
+      bg: "bg-slate-50", 
+      border: "border-slate-200",
+      icon_bg: "bg-purple-100",
+      icon_color: "text-purple-600",
+      label: "In Progress",
+      label_bg: "bg-purple-50",
+      label_text: "text-purple-700",
+      dot_color: "bg-purple-500"
+    }
+  end
+%>
 <% if compact %>
-  <details class="rounded-lg border border-slate-200 bg-slate-50 group">
+  <details class="rounded-lg border <%= execution_config[:border] %> <%= execution_config[:bg] %> group">
     <summary class="flex items-center justify-between p-2.5 cursor-pointer hover:bg-slate-100 rounded-lg">
       <div class="flex items-center gap-2">
-        <div class="flex h-6 w-6 items-center justify-center rounded bg-purple-100">
-          <svg class="h-3.5 w-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+        <div class="flex h-6 w-6 items-center justify-center rounded <%= execution_config[:icon_bg] %>">
+          <% if status == :completed %>
+            <svg class="h-3.5 w-3.5 <%= execution_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          <% else %>
+            <svg class="h-3.5 w-3.5 <%= execution_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          <% end %>
         </div>
         <span class="text-xs font-medium text-slate-700">Execution</span>
+        <%# Status badge %>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium <%= execution_config[:label_bg] %> <%= execution_config[:label_text] %>">
+          <span class="h-1.5 w-1.5 rounded-full <%= execution_config[:dot_color] %>"></span>
+          <%= execution_config[:label] %>
+        </span>
       </div>
       <svg class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -46,17 +85,30 @@
     </div>
   </details>
 <% else %>
-  <details class="bg-white rounded-lg border border-slate-200 shadow-sm group" open>
+  <details class="bg-white rounded-lg border <%= execution_config[:border] %> shadow-sm group" open>
     <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 rounded-t-lg">
       <div class="flex items-center gap-3">
-        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
-          <svg class="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg <%= execution_config[:icon_bg] %>">
+          <% if status == :completed %>
+            <svg class="h-4 w-4 <%= execution_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          <% else %>
+            <svg class="h-4 w-4 <%= execution_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          <% end %>
         </div>
         <div>
-          <h3 class="text-sm font-semibold text-slate-900">Execution</h3>
-          <p class="text-xs text-slate-500">Implementation Complete</p>
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm font-semibold text-slate-900">Execution</h3>
+            <%# Status badge %>
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium <%= execution_config[:label_bg] %> <%= execution_config[:label_text] %>">
+              <span class="h-1.5 w-1.5 rounded-full <%= execution_config[:dot_color] %>"></span>
+              <%= execution_config[:label] %>
+            </span>
+          </div>
+          <p class="text-xs text-slate-500"><%= status == :completed ? "Implementation Complete" : "In Progress" %></p>
         </div>
       </div>
       <svg class="h-5 w-5 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">

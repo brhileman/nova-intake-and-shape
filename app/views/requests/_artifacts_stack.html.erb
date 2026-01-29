@@ -4,6 +4,7 @@
   Artifact statuses:
   - Brief: not_started (no brief) | drafted (intake_clarified) | approved (planning phase+)
   - Plan: not_started (no plan) | drafted (planning_clarified) | approved (execution phase+)
+  - Execution: not_started (no execution) | in_progress (execution exists) | completed (request completed)
 %>
 <%
   # Determine brief status
@@ -22,6 +23,15 @@
     :drafted
   else
     :approved
+  end
+
+  # Determine execution status
+  execution_status = if req.execution.nil?
+    :not_started
+  elsif req.status == "completed"
+    :completed
+  else
+    :in_progress
   end
 %>
 
@@ -45,7 +55,7 @@
 
     <%# Execution (when complete) %>
     <% if req.execution %>
-      <%= render "artifact_execution", execution: req.execution, compact: true %>
+      <%= render "artifact_execution", execution: req.execution, compact: true, status: execution_status %>
       <% if req.status == "execution_review" %>
         <div class="rounded-lg border border-amber-200 bg-amber-50 p-2 text-center">
           <p class="text-xs font-medium text-amber-600">Waiting for PR review</p>
