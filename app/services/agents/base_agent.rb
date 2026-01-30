@@ -11,8 +11,9 @@ module Agents
     end
 
     # Launch a new agent for this request
+    # @param images [Array<Hash>] Optional array of images with :url keys
     # @return [Hash] Agent response with id, status
-    def launch
+    def launch(images: [])
       unless @project.environment_configured?
         raise ProjectNotConfiguredError,
           "Project '#{@project.name}' is not configured for Cloud Agents. " \
@@ -23,7 +24,8 @@ module Agents
         prompt: build_prompt,
         repo_url: @project.repo_url,
         ref: @project.default_branch || "main",
-        auto_create_pr: auto_create_pr?
+        auto_create_pr: auto_create_pr?,
+        images: images
       )
 
       @request.update!(current_agent_id: response["id"])
@@ -32,11 +34,12 @@ module Agents
 
     # Send a follow-up message to the current agent
     # @param message [String] The follow-up message
+    # @param images [Array<Hash>] Optional array of images with :url keys
     # @return [Hash] Response
-    def followup(message)
+    def followup(message, images: [])
       raise "No agent running for this request" unless @request.current_agent_id
 
-      @client.followup(@request.current_agent_id, prompt: message)
+      @client.followup(@request.current_agent_id, prompt: message, images: images)
     end
 
     # Get current agent status

@@ -24,10 +24,14 @@ module CursorApi
     # @param repo_url [String] GitHub repository URL
     # @param ref [String] Git branch/ref (default: 'main')
     # @param auto_create_pr [Boolean] Whether to auto-create PR
+    # @param images [Array<Hash>] Optional array of images, each with :url key
     # @return [Hash] Agent response with id, status, etc.
-    def create_agent(prompt:, repo_url:, ref: "main", auto_create_pr: false)
+    def create_agent(prompt:, repo_url:, ref: "main", auto_create_pr: false, images: [])
+      prompt_payload = { text: prompt }
+      prompt_payload[:images] = images.map { |img| { url: img[:url] } } if images.any?
+
       response = @conn.post("agents", {
-        prompt: { text: prompt },
+        prompt: prompt_payload,
         source: { repository: repo_url, ref: ref },
         target: { autoCreatePr: auto_create_pr }
       })
@@ -38,10 +42,14 @@ module CursorApi
     # Send follow-up message to existing agent
     # @param agent_id [String] The agent ID (bc_xxx)
     # @param prompt [String] The follow-up message
+    # @param images [Array<Hash>] Optional array of images, each with :url key
     # @return [Hash] Response
-    def followup(agent_id, prompt:)
+    def followup(agent_id, prompt:, images: [])
+      prompt_payload = { text: prompt }
+      prompt_payload[:images] = images.map { |img| { url: img[:url] } } if images.any?
+
       response = @conn.post("agents/#{agent_id}/followup", {
-        prompt: { text: prompt }
+        prompt: prompt_payload
       })
 
       handle_response(response)

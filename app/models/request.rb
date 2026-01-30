@@ -7,6 +7,7 @@ class Request < ApplicationRecord
   has_many :briefs, dependent: :destroy
   has_many :plans, dependent: :destroy
   has_one :execution, dependent: :destroy
+  has_one :design_guidance, dependent: :destroy
   has_many :comments, dependent: :destroy
 
   # Request type classification: new feature, update to existing, or bug fix

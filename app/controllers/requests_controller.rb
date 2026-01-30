@@ -56,7 +56,8 @@ class RequestsController < ApplicationController
       @request.start_execution!
       # Use followup() to continue with the same agent instead of launching a new one
       agent = Agents::ExecutionAgent.new(@request)
-      agent.followup(agent.build_execution_transition_prompt)
+      # Include design guidance images if provided
+      agent.followup(agent.build_execution_transition_prompt, images: agent.design_images)
       notice_message = "Plan approved. Execution phase started."
 
     when "execution_review"
@@ -342,27 +343,45 @@ class RequestsController < ApplicationController
 
     begin
       client = CursorApi::Client.new
-      agent = client.get_agent(@request.current_agent_id)
 
-      pr_url = agent.dig("target", "prUrl")
-      summary = agent["summary"]
+      # PR creation is async - retry a few times if prUrl isn't populated yet
+      pr_url = nil
+      summary = nil
+      branch_name = nil
+      max_retries = 4
+      retry_delay = 3 # seconds
+
+      max_retries.times do |attempt|
+        agent = client.get_agent(@request.current_agent_id)
+        pr_url = agent.dig("target", "prUrl")
+        summary ||= agent["summary"]
+        branch_name ||= agent.dig("target", "branchName")
+
+        if pr_url.present?
+          Rails.logger.info "[Nova Flow] PR URL found on attempt #{attempt + 1}: #{pr_url}"
+          break
+        end
+
+        if attempt < max_retries - 1
+          Rails.logger.info "[Nova Flow] PR URL not yet available (attempt #{attempt + 1}/#{max_retries}), " \
+                            "waiting #{retry_delay}s for async PR creation..."
+          sleep(retry_delay)
+        end
+      end
 
       # Fallback: Try to extract PR URL from conversation messages if not in agent response
       if pr_url.blank?
-        Rails.logger.info "[Nova Flow] PR URL not in agent response, attempting to extract from conversation..."
+        Rails.logger.info "[Nova Flow] PR URL not in agent response after retries, " \
+                          "attempting to extract from conversation..."
         pr_url = extract_pr_url_from_conversation(client)
       end
 
       # Log warning if PR URL is still missing
       if pr_url.blank?
         Rails.logger.warn "[Nova Flow] No PR URL found for request #{@request.id}. " \
-                          "Checked agent.target.prUrl and conversation messages. " \
+                          "Checked agent.target.prUrl (with retries) and conversation messages. " \
+                          "Branch: #{branch_name || 'unknown'}. " \
                           "This may indicate a GitHub permissions issue or the PR wasn't created."
-
-        # Check if there's error information in the agent response
-        if agent["error"].present?
-          Rails.logger.error "[Nova Flow] Agent error: #{agent['error']}"
-        end
       else
         Rails.logger.info "[Nova Flow] PR URL found for request #{@request.id}: #{pr_url}"
       end

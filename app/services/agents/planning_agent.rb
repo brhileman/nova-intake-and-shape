@@ -70,21 +70,25 @@ module Agents
       ## Design References
 
       Flag for design input when the work involves:
-      - New pages or major UI sections
-      - New user flows or navigation patterns
-      - New component types not in existing design system
-      - Significant layout restructuring
-      - Empty states, error states, loading states (UX decisions)
-      - Changes affecting brand/visual identity
-      - New interactions or animations
+      - New pages or screens
+      - New user flows or multi-step processes
+      - New component types not already in the codebase
+      - Significant layout changes (not just adding a field)
+      - Empty states, error states, or loading states
+      - Modals, drawers, or overlay UI (new ones)
+      - Data tables or complex data displays
+      - Forms with conditional logic or complex validation UX
+      - Changes to navigation or information architecture
+      - Anything requiring judgment about visual hierarchy or user attention
 
       AI can handle without design input:
-      - Text/copy changes
-      - Bug fixes
-      - Simple styling (colors, spacing, alignment)
-      - Using existing UI patterns/components
-      - Backend/API/data changes
-      - Adding functionality to existing UI
+      - Adding fields/columns using existing patterns
+      - Copy changes
+      - Bug fixes restoring existing behavior
+      - Styling tweaks within established patterns
+      - Using existing components as-is
+      - Backend changes with no UI impact
+      - Adding buttons/actions that follow existing conventions
 
       Output:
       - [ ] **DESIGN INPUT NEEDED**: [Description of what design is needed]

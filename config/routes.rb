@@ -21,5 +21,8 @@ Rails.application.routes.draw do
       post :comment   # Send message to agent (calls agent.followup)
       post :approve   # Approve current phase, triggers state transition + launches next agent
     end
+
+    # Nested singular resource for design guidance (one per request)
+    resource :design_guidance, only: [ :create, :update ]
   end
 end

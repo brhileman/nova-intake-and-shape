@@ -25,22 +25,44 @@ module Agents
     # Build the transition prompt for moving from planning to execution phase
     # Used with followup() to continue the same agent
     def build_execution_transition_prompt
-      latest_brief = @request.latest_brief
       latest_plan = @request.latest_plan
+      guidance = @request.design_guidance
 
-      <<~PROMPT
+      prompt = <<~PROMPT
         The plan has been approved. Now transition to the execution phase.
 
         #{INSTRUCTIONS}
 
-        ## Approved Brief
-        #{latest_brief&.content || "No brief available"}
-
         ## Approved Plan
         #{latest_plan&.content || "No plan available"}
-
-        Implement the plan now. Commit and push your changes.
       PROMPT
+
+      # Include design guidance if provided
+      if guidance&.provided?
+        prompt += <<~PROMPT
+
+          ## Design Guidance
+          #{guidance.specifications.presence || "See attached design screenshots for reference."}
+        PROMPT
+
+        if guidance.images.attached?
+          prompt += "\n\nDesign screenshots are attached to this message. Use them as visual reference for the UI implementation."
+        end
+      end
+
+      prompt += "\n\nImplement the plan now. Commit and push your changes."
+      prompt
+    end
+
+    # Get design images for the API call
+    # @return [Array<Hash>] Array of image hashes with :url keys
+    def design_images
+      guidance = @request.design_guidance
+      return [] unless guidance&.images&.attached?
+
+      guidance.images.map do |image|
+        { url: Rails.application.routes.url_helpers.rails_blob_url(image, only_path: false) }
+      end
     end
 
     protected
@@ -50,14 +72,10 @@ module Agents
     end
 
     def build_prompt
-      latest_brief = @request.latest_brief
       latest_plan = @request.latest_plan
 
       prompt = <<~PROMPT
         #{INSTRUCTIONS}
-
-        ## Brief
-        #{latest_brief&.content || "No brief available"}
 
         ## Approved Plan
         #{latest_plan&.content || "No plan available"}

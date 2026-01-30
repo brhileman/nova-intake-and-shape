@@ -28,7 +28,7 @@
   # Determine execution status
   execution_status = if req.execution.nil?
     :not_started
-  elsif req.status == "completed"
+  elsif %w[execution_review completed].include?(req.status)
     :completed
   else
     :in_progress
@@ -52,6 +52,9 @@
                status: plan_status,
                artifact: req.latest_plan,
                request: req %>
+
+    <%# Design Guidance (always shown - marked as optional or required) %>
+    <%= render "artifact_design", request: req %>
 
     <%# Execution (when complete) %>
     <% if req.execution %>
