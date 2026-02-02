@@ -2,6 +2,7 @@
 
 class Brief < ApplicationRecord
   belongs_to :request
+  belongs_to :created_by, class_name: "User", optional: true
 
   before_create :set_version
 

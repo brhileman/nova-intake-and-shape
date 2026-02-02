@@ -1,12 +1,33 @@
 # frozen_string_literal: true
 
 class RequestsController < ApplicationController
-  before_action :set_request, only: [ :show, :poll, :approve, :comment ]
+  before_action :set_request, only: [ :show, :poll, :approve, :comment, :assign ]
   before_action :require_project, only: [ :index, :new, :create ]
 
   # GET /requests
   def index
-    @requests = current_project.requests.order(created_at: :desc)
+    @requests = current_project.requests
+
+    # Apply filters based on params
+    case params[:filter]
+    when "my_projects"
+      # Requests from projects where current user is on the team
+      @requests = @requests.for_team_member(current_user)
+    when "needs_my_action"
+      @requests = @requests.needs_action_from(current_user)
+    when "in_review"
+      @requests = @requests.in_review
+    when "created_by_me"
+      @requests = @requests.created_by_user(current_user)
+    end
+
+    # Apply status filter if specified
+    if params[:status].present?
+      @requests = @requests.by_phase(params[:status])
+    end
+
+    @requests = @requests.order(created_at: :desc)
+    @current_filter = params[:filter] || "all"
   end
 
   # GET /requests/:id
@@ -23,6 +44,7 @@ class RequestsController < ApplicationController
   # POST /requests
   def create
     @request = current_project.requests.build(request_params)
+    @request.created_by = current_user
 
     if @request.save
       # Auto-launch intake agent (same as CLI)
@@ -40,30 +62,58 @@ class RequestsController < ApplicationController
   def approve
     notice_message = nil
 
+    # Check if user can approve this phase
+    unless @request.can_user_approve?(current_user)
+      respond_to do |format|
+        format.turbo_stream { head :unprocessable_entity }
+        format.html { redirect_to @request, alert: cannot_approve_message }
+      end
+      return
+    end
+
+    # Record the approval
+    @request.record_approval(current_user)
+
     case @request.status
     when "intake_clarified"
-      # Brief is already saved when transitioning to intake_clarified
-      @request.approve_intake!
-      @request.start_planning!
-      # Use followup() to continue with the same agent instead of launching a new one
-      agent = Agents::PlanningAgent.new(@request)
-      agent.followup(agent.build_planning_transition_prompt)
-      notice_message = "Brief approved. Planning phase started."
+      if @request.all_approvals_present?
+        # Brief is already saved when transitioning to intake_clarified
+        @request.approve_intake!
+        @request.start_planning!
+        # Use followup() to continue with the same agent instead of launching a new one
+        agent = Agents::PlanningAgent.new(@request)
+        agent.followup(agent.build_planning_transition_prompt)
+        notice_message = "Brief approved. Planning phase started."
+      else
+        notice_message = "Your approval has been recorded. Waiting for additional approvals."
+      end
 
     when "planning_clarified"
-      # Plan is already saved when transitioning to planning_clarified
-      @request.approve_plan!
-      @request.start_execution!
-      # Use followup() to continue with the same agent instead of launching a new one
-      agent = Agents::ExecutionAgent.new(@request)
-      # Include design guidance images if provided
-      agent.followup(agent.build_execution_transition_prompt, images: agent.design_images)
-      notice_message = "Plan approved. Execution phase started."
+      if @request.all_approvals_present?
+        # Plan is already saved when transitioning to planning_clarified
+        @request.approve_plan!
+        @request.start_execution!
+        # Use followup() to continue with the same agent instead of launching a new one
+        agent = Agents::ExecutionAgent.new(@request)
+        # Include design guidance images if provided
+        agent.followup(agent.build_execution_transition_prompt, images: agent.design_images)
+        notice_message = "Plan approved by all required roles. Execution phase started."
+      else
+        status = @request.plan_approval_status
+        pending_roles = []
+        pending_roles << "PM" unless status[:pm]
+        pending_roles << "Dev" unless status[:dev]
+        notice_message = "Your approval has been recorded. Waiting for: #{pending_roles.join(', ')}"
+      end
 
     when "execution_review"
-      save_execution_from_agent
-      @request.approve_execution!
-      notice_message = "Execution approved. Request completed!"
+      if @request.all_approvals_present?
+        save_execution_from_agent
+        @request.approve_execution!
+        notice_message = "Execution approved. Request completed!"
+      else
+        notice_message = "Your approval has been recorded. Waiting for additional approvals."
+      end
 
     else
       respond_to do |format|
@@ -97,8 +147,9 @@ class RequestsController < ApplicationController
 
     # Save comment to database
     @request.comments.create!(
+      user: current_user,
       author_type: "user",
-      author_name: "Web User",
+      author_name: current_user&.name || "Web User",
       content: message,
       phase: @request.current_phase
     )
@@ -137,6 +188,28 @@ class RequestsController < ApplicationController
         ]
       end
       format.html { redirect_to @request }
+    end
+  end
+
+  # PATCH /requests/:id/assign
+  def assign
+    assignee_id = params[:assignee_id]
+    
+    if assignee_id.present?
+      @request.update(assignee_id: assignee_id)
+      notice_message = "Request assigned to #{@request.assignee.name}"
+    else
+      @request.update(assignee_id: nil)
+      notice_message = "Request unassigned"
+    end
+
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: [
+          turbo_stream.update("assignment_#{@request.id}", partial: "assignment", locals: { request: @request })
+        ]
+      end
+      format.html { redirect_to @request, notice: notice_message }
     end
   end
 
@@ -180,6 +253,26 @@ class RequestsController < ApplicationController
 
   def request_params
     params.require(:request).permit(:original_input)
+  end
+
+  def cannot_approve_message
+    if !current_user
+      "You must be logged in to approve."
+    elsif !@request.in_review_state?
+      "This request is not in a review state."
+    else
+      phase = @request.current_approval_phase
+      if @request.user_has_approved_phase?(current_user, phase)
+        "You have already approved this #{phase}."
+      else
+        required_role = case phase
+        when "brief" then "PM"
+        when "plan" then "PM or Dev"
+        when "execution" then "Dev"
+        end
+        "Only #{required_role} can approve this phase. You are #{current_user.role.upcase}."
+      end
+    end
   end
 
   def fetch_conversation

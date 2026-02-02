@@ -108,9 +108,47 @@
       <% end %>
     </td>
     
-    <%# Assigned column (placeholder for future) %>
-    <td class="px-3 py-3 whitespace-nowrap">
-      <span class="text-slate-400 text-sm">—</span>
+    <%# Pending tasks column %>
+    <td class="px-3 py-3">
+      <%
+        # Determine who has pending tasks based on status
+        pending_users = []
+        
+        case request.status
+        when "intake_clarified"
+          # Brief needs PM approval
+          unless request.brief_approved?
+            pending_users << request.project.pm if request.project.pm
+          end
+        when "planning_clarified"
+          # Plan needs PM and Dev approval
+          status = request.plan_approval_status
+          pending_users << request.project.pm if request.project.pm && !status[:pm]
+          pending_users << request.project.dev if request.project.dev && !status[:dev]
+        when "execution_review"
+          # Execution needs Dev approval
+          unless request.execution_approved?
+            pending_users << request.project.dev if request.project.dev
+          end
+        end
+        
+        # Add designer if design input is needed and we're in a waiting state
+        if request.requires_design_input && 
+           request.design_guidance.blank? && 
+           %w[intake_clarified planning_pending planning_in_progress].include?(request.status)
+          pending_users << request.project.designer if request.project.designer
+        end
+        
+        pending_users = pending_users.compact.uniq
+      %>
+      
+      <% if pending_users.any? %>
+        <div class="text-sm text-slate-600">
+          <%= pending_users.map(&:name).join(", ") %>
+        </div>
+      <% else %>
+        <span class="text-slate-300 text-sm">—</span>
+      <% end %>
     </td>
     
     <%# Action column %>

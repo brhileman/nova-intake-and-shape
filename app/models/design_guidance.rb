@@ -2,12 +2,18 @@
 
 class DesignGuidance < ApplicationRecord
   belongs_to :request
+  belongs_to :user, optional: true
 
   has_many_attached :images
 
   validates :request, uniqueness: true
 
   before_save :set_provided_at
+
+  # Display name: prefer user name, fall back to provided_by
+  def display_provider_name
+    user&.name || provided_by || "Unknown"
+  end
 
   # Check if guidance has been provided (has images or specifications)
   def provided?

@@ -37,6 +37,11 @@
       <%= render "agent_status", request: @request %>
     </div>
 
+    <%# Assignment - assign to user %>
+    <div id="assignment_<%= @request.id %>">
+      <%= render "assignment", request: @request %>
+    </div>
+
     <%# Project Overview - Structured data %>
     <div id="project_overview_<%= @request.id %>">
       <%= render "project_overview", request: @request %>

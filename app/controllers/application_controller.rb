@@ -19,4 +19,22 @@ class ApplicationController < ActionController::Base
     @all_projects ||= Project.order(:name)
   end
   helper_method :all_projects
+
+  # Get the current user from session, fallback to first user (PM)
+  def current_user
+    @current_user ||= begin
+      if session[:current_user_id]
+        User.find_by(id: session[:current_user_id]) || User.first
+      else
+        User.first
+      end
+    end
+  end
+  helper_method :current_user
+
+  # Helper to get all users for the dropdown
+  def all_users
+    @all_users ||= User.order(:role, :name)
+  end
+  helper_method :all_users
 end

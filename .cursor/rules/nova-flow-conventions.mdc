@@ -1,0 +1,71 @@
+---
+description: Core conventions for Nova Flow - Rails 8 app orchestrating AI agents for software development workflows
+alwaysApply: true
+---
+
+# Nova Flow Project Conventions
+
+## Architecture Overview
+
+Nova Flow orchestrates Cursor Cloud Agents through a state machine workflow:
+**intake → planning → execution → completed**
+
+### Core Domain Models
+- **Project**: Repository + team assignments (PM, Designer, Dev)
+- **Request**: A feature/bug request with state machine (AASM)
+- **Brief**: Extracted requirements from intake phase
+- **Plan**: Implementation plan with tasks
+- **Execution**: The actual implementation (PR link, etc.)
+- **Approval**: Role-based sign-off (PM approves briefs, PM+Dev approve plans)
+
+## Agent Pattern
+
+Agents live in `app/services/agents/` and inherit from `BaseAgent`:
+
+```ruby
+module Agents
+  class MyAgent < BaseAgent
+    protected
+
+    def build_prompt
+      # Return the prompt string for this agent
+    end
+
+    def auto_create_pr?
+      false # Override to true if agent creates PRs
+    end
+  end
+end
+```
+
+## Rails 8 Conventions
+
+- Use Hotwire (Turbo + Stimulus) - no page reloads, use Turbo Streams
+- Stimulus controllers in `app/javascript/controllers/`
+- Tailwind CSS for styling (no custom CSS unless necessary)
+- Use `solid_queue` for background jobs
+- ERB templates, not React/Vue
+
+## State Machine (AASM)
+
+Request states follow pattern: `{phase}_{status}` (e.g., `intake_in_progress`, `planning_clarified`)
+
+Valid transitions are defined in `Request` model. Always use AASM events:
+```ruby
+request.start_intake!      # Not: request.update!(status: 'intake_in_progress')
+request.clarify_planning!  # Events handle validations
+```
+
+## Feature Development
+
+When adding a new feature, review nearby existing features (same view, controller, or workflow) and identify any that can be simplified, merged, or removed. Include a brief **Sunsetting Recommendation** in the final implementation output noting:
+- Redundant features that overlap with the new one
+- Dead code or unused paths discovered during implementation
+- Opportunities to consolidate similar functionality
+
+## Testing
+
+- Minitest (not RSpec)
+- FactoryBot for fixtures (`test/factories/`)
+- WebMock for HTTP mocking (Cursor API calls)
+- Run tests: `bin/rails test`

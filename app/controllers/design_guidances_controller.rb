@@ -6,7 +6,8 @@ class DesignGuidancesController < ApplicationController
   # POST /requests/:request_id/design_guidance
   def create
     @design_guidance = @request.build_design_guidance(design_guidance_params)
-    @design_guidance.provided_by = "Web User" # Could be enhanced with actual user auth
+    @design_guidance.user = current_user
+    @design_guidance.provided_by = current_user&.name || "Web User"
 
     if @design_guidance.save
       redirect_to @request, notice: "Design guidance saved successfully."

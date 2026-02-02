@@ -15,11 +15,19 @@ Rails.application.routes.draw do
     end
   end
 
+  # User switching (for role-based testing)
+  resources :users, only: [] do
+    member do
+      post :select
+    end
+  end
+
   resources :requests, only: [ :index, :show, :new, :create ] do
     member do
       get :poll       # Polling endpoint - checks agent status, auto-transitions, returns Turbo Stream
       post :comment   # Send message to agent (calls agent.followup)
       post :approve   # Approve current phase, triggers state transition + launches next agent
+      patch :assign   # Assign request to a user
     end
 
     # Nested singular resource for design guidance (one per request)
