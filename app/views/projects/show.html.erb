@@ -1,19 +1,15 @@
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-bold text-slate-100">Requests</h1>
-    <p class="text-slate-400 mt-1">Manage your development requests</p>
-  </div>
-  <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-[#00b4d8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0096b4] transition-colors" do %>
-    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-    </svg>
-    New Request
-  <% end %>
+<%# Breadcrumbs %>
+<%= render "shared/breadcrumbs", breadcrumbs: breadcrumb_for_project(@project) %>
+
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-slate-100"><%= @project.name %></h1>
+  <p class="text-slate-400 mt-1">Manage development requests for this project</p>
 </div>
 
 <%# Filter tabs %>
 <div class="mb-4 border-b border-slate-700">
-  <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+  <div class="flex items-end justify-between">
+    <nav class="-mb-px flex space-x-6" aria-label="Tabs">
     <%
       filters = [
         ["all", "All Requests", nil],
@@ -25,11 +21,11 @@
     %>
     <% filters.each do |filter_key, filter_label, badge_class| %>
       <% is_active = current_filter == filter_key %>
-      <%= link_to requests_path(filter: filter_key == "all" ? nil : filter_key),
+      <%= link_to project_path(@project, filter: filter_key == "all" ? nil : filter_key),
                   class: "whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium transition-colors #{is_active ? 'border-[#00b4d8] text-[#00b4d8]' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500'}" do %>
         <%= filter_label %>
         <% if filter_key == "needs_my_action" && current_user %>
-          <% count = current_project.requests.needs_action_from(current_user).count %>
+          <% count = @project.requests.needs_action_from(current_user).count %>
           <% if count > 0 %>
             <span class="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full <%= badge_class || 'bg-slate-700 text-slate-300' %>">
               <%= count %>
@@ -38,7 +34,14 @@
         <% end %>
       <% end %>
     <% end %>
-  </nav>
+    </nav>
+    <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-[#00b4d8] px-4 py-2.5 mb-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0096b4] transition-colors" do %>
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      New Request
+    <% end %>
+  </div>
 </div>
 
 <% if @requests.empty? %>
@@ -87,7 +90,7 @@
       </thead>
       <tbody class="divide-y divide-slate-700/50 bg-slate-800">
         <% @requests.each do |request| %>
-          <%= render "request_row", request: request %>
+          <%= render "requests/request_row", request: request %>
         <% end %>
       </tbody>
     </table>

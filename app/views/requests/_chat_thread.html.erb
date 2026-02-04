@@ -1,32 +1,17 @@
 <%# Local: request (Request model), conversation (Array of messages) %>
 <% req = local_assigns[:request] || @request %>
 <% conv = local_assigns[:conversation] || @conversation || [] %>
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[calc(100vh-10.5rem)]" data-controller="chat">
-  <%# Header %>
-  <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-    <div>
-      <h1 class="text-lg font-semibold text-slate-900">
-        <% if req.request_number %>
-          <span class="text-slate-400 font-normal">REQ-<%= req.request_number %>:</span>
-        <% end %>
-        <%= req.display_title %>
-      </h1>
-      <p class="text-sm text-slate-500 mt-0.5">
-        <%= req.current_phase.capitalize %> Phase
-      </p>
-    </div>
-  </div>
-
+<div class="flex flex-col h-full" data-controller="chat">
   <%# Messages - scrollable area %>
   <div class="flex-1 overflow-y-auto p-5 space-y-4" data-chat-target="messages">
     <% if conv.empty? %>
       <div class="flex items-center justify-center h-full">
         <div class="text-center">
-          <svg class="mx-auto h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="mx-auto h-10 w-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
-          <p class="mt-3 text-sm text-slate-500">No messages yet</p>
-          <p class="text-xs text-slate-400">Waiting for agent response...</p>
+          <p class="mt-3 text-sm text-slate-400">No messages yet</p>
+          <p class="text-xs text-slate-500">Waiting for agent response...</p>
         </div>
       </div>
     <% else %>
@@ -37,37 +22,23 @@
   </div>
 
   <%# Bottom section - Action CTA and/or Message Input %>
-  <div class="border-t border-slate-200 bg-slate-50">
-    <%# Approval CTA - shown when in clarified or review state %>
-    <% if req.in_review_state? %>
-      <div id="chat_approval_cta_<%= req.id %>" class="px-5 py-3 border-b border-slate-200">
-        <%# Phase-specific CTA text, helper, and required roles %>
+  <div class="border-t border-slate-700 bg-slate-900">
+    <%# Execution Review CTA - shown when in execution_review state %>
+    <%# Note: Brief and Plan approvals are now in their respective artifact modals %>
+    <% if req.status == "execution_review" %>
+      <div id="chat_approval_cta_<%= req.id %>" class="px-5 py-3 border-b border-slate-700">
         <% 
-          cta_text, cta_helper, required_roles = case req.status
-            when "intake_clarified" 
-              ["Approve Brief", "Approving will start the planning phase", [["PM", :pm]]]
-            when "planning_clarified" 
-              ["Approve Plan", "Requires both PM and Dev approval", [["PM", :pm], ["Dev", :dev]]]
-            when "execution_review" 
-              ["Mark Complete", "This will finalize the request", [["Dev", :dev]]]
-            else 
-              ["Approve & Continue", nil, []]
-            end
-          
-          approval_status = case req.status
-            when "intake_clarified" then req.brief_approval_status
-            when "planning_clarified" then req.plan_approval_status
-            when "execution_review" then req.execution_approval_status
-            else {}
-            end
-          
+          cta_text = "Mark Complete"
+          cta_helper = "This will finalize the request"
+          required_roles = [["Dev", :dev]]
+          approval_status = req.execution_approval_status
           can_approve = req.can_user_approve?(current_user)
         %>
         
         <div class="space-y-3">
           <%# Approval status row %>
           <div class="flex items-center gap-4">
-            <p class="text-sm font-medium text-slate-700">Approvals Required:</p>
+            <p class="text-sm font-medium text-slate-300">Approvals Required:</p>
             <div class="flex items-center gap-3">
               <% required_roles.each do |role_label, role_key| %>
                 <% approval = approval_status[role_key] %>
@@ -77,15 +48,15 @@
                     <svg class="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                     </svg>
-                    <span class="text-xs text-emerald-700 font-medium"><%= role_label %></span>
-                    <span class="text-xs text-slate-400">(<%= approval.user.name %>)</span>
+                    <span class="text-xs text-emerald-400 font-medium"><%= role_label %></span>
+                    <span class="text-xs text-slate-500">(<%= approval.user.name %>)</span>
                   <% else %>
                     <%# Pending - gray circle %>
-                    <svg class="h-4 w-4 text-slate-300" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="h-4 w-4 text-slate-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd" />
                     </svg>
-                    <span class="text-xs text-slate-500"><%= role_label %></span>
-                    <span class="text-xs text-slate-400">(pending)</span>
+                    <span class="text-xs text-slate-400"><%= role_label %></span>
+                    <span class="text-xs text-slate-500">(pending)</span>
                   <% end %>
                 </div>
               <% end %>
@@ -96,13 +67,13 @@
           <div class="flex items-center justify-between gap-4">
             <div class="flex-1 min-w-0">
               <% if can_approve %>
-                <p class="text-xs text-slate-500"><%= cta_helper %></p>
+                <p class="text-xs text-slate-400"><%= cta_helper %></p>
               <% elsif current_user %>
                 <% phase = req.current_approval_phase %>
                 <% if req.user_has_approved_phase?(current_user, phase) %>
-                  <p class="text-xs text-emerald-600">You have already approved this <%= phase %>.</p>
+                  <p class="text-xs text-emerald-400">You have already approved this <%= phase %>.</p>
                 <% else %>
-                  <p class="text-xs text-amber-600">Your role (<%= current_user.role.upcase %>) cannot approve this phase.</p>
+                  <p class="text-xs text-amber-400">Your role (<%= current_user.role.upcase %>) cannot approve this phase.</p>
                 <% end %>
               <% end %>
             </div>
@@ -110,14 +81,14 @@
               <%= button_to approve_request_path(req), 
                   method: :post,
                   data: { turbo_stream: true },
-                  class: "shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5" do %>
+                  class: "shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors inline-flex items-center gap-1.5" do %>
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
                 <%= cta_text %>
               <% end %>
             <% else %>
-              <div class="shrink-0 rounded-md bg-slate-200 px-4 py-2 text-sm font-medium text-slate-400 inline-flex items-center gap-1.5 cursor-not-allowed">
+              <div class="shrink-0 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-slate-500 inline-flex items-center gap-1.5 cursor-not-allowed">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
@@ -128,12 +99,12 @@
         </div>
       </div>
     <% elsif req.status == "completed" %>
-      <div class="px-5 py-3 bg-emerald-50">
+      <div class="px-5 py-3 bg-emerald-900/30">
         <div class="flex items-center gap-2">
-          <svg class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p class="text-sm font-medium text-emerald-700">Request completed</p>
+          <p class="text-sm font-medium text-emerald-400">Request completed</p>
         </div>
       </div>
     <% end %>
@@ -146,13 +117,14 @@
                       class: "flex items-center gap-3",
                       data: { controller: "form", action: "turbo:submit-start->form#disable turbo:submit-end->form#enable" } do |f| %>
           <div class="flex-1 relative">
-            <%= f.text_field :message, 
-                placeholder: "Add a comment or ask a question...",
-                class: "w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00b4d8]/20 focus:border-[#00b4d8]",
+            <%= f.text_area :message, 
+                placeholder: "Send message to agent...",
+                rows: 2,
+                class: "w-full px-3 py-2 text-sm border border-slate-600 rounded-lg bg-slate-900 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 resize-none",
                 data: { chat_target: "input" } %>
           </div>
           <%= f.submit "Send", 
-              class: "px-4 py-2 text-sm font-medium text-white bg-[#00b4d8] rounded-lg hover:bg-[#0096b4] transition-colors cursor-pointer disabled:opacity-50",
+              class: "px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg hover:bg-cyan-500 transition-colors cursor-pointer disabled:opacity-50",
               data: { form_target: "submit" } %>
         <% end %>
       </div>

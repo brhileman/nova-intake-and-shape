@@ -28,4 +28,23 @@ module ApplicationHelper
       "bg-gray-200/20 text-gray-100"
     end
   end
+
+  # Breadcrumb helpers for hierarchical navigation
+
+  # Breadcrumb for project page: Home > Project Name
+  def breadcrumb_for_project(project)
+    [
+      { label: "Home", path: root_path },
+      { label: project.name, path: nil }
+    ]
+  end
+
+  # Breadcrumb for request page: Home > Project Name > REQ-123
+  def breadcrumb_for_request(request)
+    [
+      { label: "Home", path: root_path },
+      { label: request.project.name, path: project_path(request.project) },
+      { label: "REQ-#{request.request_number}", path: nil }
+    ]
+  end
 end

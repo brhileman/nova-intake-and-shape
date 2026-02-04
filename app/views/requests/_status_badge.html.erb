@@ -1,18 +1,18 @@
-<%# Status badge with colors based on state %>
+<%# Status badge with colors based on state - dark mode %>
 <%
   badge_classes = case status
   when /pending$/
-    "bg-slate-100 text-slate-600"
+    "bg-slate-700 text-slate-300"
   when /in_progress$/
-    "bg-amber-100 text-amber-700 animate-pulse"
+    "bg-amber-900/50 text-amber-400 animate-pulse"
   when /needs_clarification$/
-    "bg-yellow-100 text-yellow-700"
+    "bg-yellow-900/50 text-yellow-400"
   when /clarified$/, /review$/
-    "bg-[#00b4d8]/10 text-[#00b4d8] font-semibold"
+    "bg-cyan-900/50 text-cyan-400 font-semibold"
   when "completed"
-    "bg-emerald-100 text-emerald-700"
+    "bg-emerald-900/50 text-emerald-400"
   else
-    "bg-slate-100 text-slate-600"
+    "bg-slate-700 text-slate-300"
   end
   
   # Human-readable label

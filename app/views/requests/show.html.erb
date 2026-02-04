@@ -1,60 +1,30 @@
+<%# Signal to layout that this view needs full-width IDE layout %>
+<% content_for :full_width, true %>
+
 <%# Hidden element for polling controller to detect status changes - scoped to request %>
 <div id="request_status_value_<%= @request.id %>" data-status="<%= @request.status %>" class="hidden"></div>
 
-<div class="flex flex-col lg:flex-row gap-6"
+<div class="flex h-screen"
      id="polling-container-<%= @request.id %>"
      data-controller="polling"
      data-polling-url-value="<%= poll_request_path(@request) %>"
      data-polling-request-id-value="<%= @request.id %>"
      data-polling-interval-value="10000">
   
-  <%# Left Column - Conversation (main content) %>
-  <div class="flex-1 min-w-0">
-    <%# Back link %>
-    <div class="mb-4">
-      <%= link_to requests_path, class: "inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700" do %>
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Requests
-      <% end %>
-    </div>
-
-    <div id="chat_thread_<%= @request.id %>">
-      <%= render "chat_thread", request: @request, conversation: @conversation %>
-    </div>
+  <%# Left Column - Request Details (metadata & team) %>
+  <div class="w-[226px] border-r border-slate-700 bg-slate-800 flex-shrink-0">
+    <%= render "project_selector", request: @request %>
   </div>
-
-  <%# Right Column - Properties Sidebar %>
-  <div class="w-full lg:w-80 flex-shrink-0 space-y-4 lg:pt-10">
-    <%# Phase Stepper - wrapped in div for Turbo Stream replacement %>
-    <div id="phase_stepper_<%= @request.id %>">
-      <%= render "phase_stepper", request: @request %>
-    </div>
-
-    <%# Agent Status - working indicator and metadata %>
-    <div id="agent_status_<%= @request.id %>">
-      <%= render "agent_status", request: @request %>
-    </div>
-
-    <%# Assignment - assign to user %>
-    <div id="assignment_<%= @request.id %>">
-      <%= render "assignment", request: @request %>
-    </div>
-
-    <%# Project Overview - Structured data %>
-    <div id="project_overview_<%= @request.id %>">
-      <%= render "project_overview", request: @request %>
-    </div>
-
-    <%# Artifacts %>
-    <div id="artifacts_<%= @request.id %>">
-      <%= render "artifacts_stack", request: @request %>
-    </div>
-
-    <%# PR Review Link - Prominent standalone component %>
-    <div id="pr_review_link_<%= @request.id %>">
-      <%= render "pr_review_link", request: @request %>
+  
+  <%# Middle Column - Properties Panel (increased width by 75px) %>
+  <div class="w-[385px] border-r border-slate-700 bg-slate-800 flex-shrink-0 overflow-y-auto">
+    <%= render "properties_panel", request: @request %>
+  </div>
+  
+  <%# Right Column - Agent Chat (main area) %>
+  <div class="flex-1 flex flex-col bg-slate-900 min-w-0">
+    <div id="chat_thread_<%= @request.id %>" class="flex-1 flex flex-col min-h-0">
+      <%= render "chat_thread", request: @request, conversation: @conversation %>
     </div>
   </div>
 </div>

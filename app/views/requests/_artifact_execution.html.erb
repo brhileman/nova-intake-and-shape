@@ -1,35 +1,35 @@
 <% compact = local_assigns[:compact] || false %>
 <% status = local_assigns[:status] || :in_progress %>
 <%
-  # Status-based styling for execution
+  # Status-based styling for execution - dark mode (subtle variant)
   execution_config = case status
   when :completed
     { 
-      bg: "bg-emerald-50", 
-      border: "border-emerald-200",
-      icon_bg: "bg-emerald-100",
-      icon_color: "text-emerald-600",
+      bg: "bg-slate-800/50", 
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
+      icon_color: "text-emerald-500/70",
       label: "Complete",
-      label_bg: "bg-emerald-50",
-      label_text: "text-emerald-700",
-      dot_color: "bg-emerald-500"
+      label_bg: "bg-slate-800/50",
+      label_text: "text-emerald-500/80",
+      dot_color: "bg-emerald-500/70"
     }
   else # :in_progress or :not_started
     { 
-      bg: "bg-slate-50", 
-      border: "border-slate-200",
-      icon_bg: "bg-purple-100",
-      icon_color: "text-purple-600",
+      bg: "bg-slate-800/50", 
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
+      icon_color: "text-slate-400",
       label: "In Progress",
-      label_bg: "bg-purple-50",
-      label_text: "text-purple-700",
-      dot_color: "bg-purple-500"
+      label_bg: "bg-slate-800/50",
+      label_text: "text-slate-400",
+      dot_color: "bg-slate-500"
     }
   end
 %>
 <% if compact %>
   <details class="rounded-lg border <%= execution_config[:border] %> <%= execution_config[:bg] %> group">
-    <summary class="flex items-center justify-between p-2.5 cursor-pointer hover:bg-slate-100 rounded-lg">
+    <summary class="flex items-center justify-between p-2.5 cursor-pointer hover:bg-slate-600 rounded-lg">
       <div class="flex items-center gap-2">
         <div class="flex h-6 w-6 items-center justify-center rounded <%= execution_config[:icon_bg] %>">
           <% if status == :completed %>
@@ -42,14 +42,14 @@
             </svg>
           <% end %>
         </div>
-        <span class="text-xs font-medium text-slate-700">Execution</span>
+        <span class="text-xs font-medium text-slate-200">Execution</span>
         <%# Status badge %>
         <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium <%= execution_config[:label_bg] %> <%= execution_config[:label_text] %>">
           <span class="h-1.5 w-1.5 rounded-full <%= execution_config[:dot_color] %>"></span>
           <%= execution_config[:label] %>
         </span>
       </div>
-      <svg class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg class="h-4 w-4 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
       </svg>
     </summary>
@@ -58,7 +58,7 @@
         <%= link_to execution.pr_url, 
             target: "_blank", 
             rel: "noopener",
-            class: "flex items-center gap-2 text-xs text-blue-600 hover:underline" do %>
+            class: "flex items-center gap-2 text-xs text-cyan-400 hover:underline" do %>
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
@@ -69,7 +69,7 @@
         <%= link_to execution.preview_url, 
             target: "_blank", 
             rel: "noopener",
-            class: "flex items-center gap-2 text-xs text-blue-600 hover:underline" do %>
+            class: "flex items-center gap-2 text-xs text-cyan-400 hover:underline" do %>
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -78,15 +78,15 @@
         <% end %>
       <% end %>
       <% if execution.summary.present? %>
-        <div class="prose prose-sm max-w-none text-slate-600 text-xs bg-white rounded p-2 max-h-32 overflow-y-auto">
+        <div class="prose prose-sm prose-invert max-w-none text-slate-300 text-xs bg-slate-900 rounded p-2 max-h-32 overflow-y-auto">
           <%= render_markdown(execution.summary) %>
         </div>
       <% end %>
     </div>
   </details>
 <% else %>
-  <details class="bg-white rounded-lg border <%= execution_config[:border] %> shadow-sm group" open>
-    <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 rounded-t-lg">
+  <details class="bg-slate-800 rounded-lg border <%= execution_config[:border] %> group" open>
+    <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-700 rounded-t-lg">
       <div class="flex items-center gap-3">
         <div class="flex h-8 w-8 items-center justify-center rounded-lg <%= execution_config[:icon_bg] %>">
           <% if status == :completed %>
@@ -101,7 +101,7 @@
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h3 class="text-sm font-semibold text-slate-900">Execution</h3>
+            <h3 class="text-sm font-semibold text-slate-100">Execution</h3>
             <%# Status badge %>
             <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium <%= execution_config[:label_bg] %> <%= execution_config[:label_text] %>">
               <span class="h-1.5 w-1.5 rounded-full <%= execution_config[:dot_color] %>"></span>
@@ -111,31 +111,31 @@
           <p class="text-xs text-slate-500"><%= status == :completed ? "Implementation Complete" : "In Progress" %></p>
         </div>
       </div>
-      <svg class="h-5 w-5 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg class="h-5 w-5 text-slate-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
       </svg>
     </summary>
     <div class="px-4 pb-4 space-y-4">
       <%# PR Link - Prominent CTA %>
       <% if execution.pr_url.present? %>
-        <div class="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+        <div class="rounded-lg bg-emerald-900/30 border border-emerald-700/50 p-4">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600">
                 <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
               <div>
-                <h4 class="text-sm font-semibold text-emerald-900">Pull Request Created</h4>
-                <p class="text-xs text-emerald-700">Ready for review</p>
+                <h4 class="text-sm font-semibold text-emerald-400">Pull Request Created</h4>
+                <p class="text-xs text-emerald-500">Ready for review</p>
               </div>
             </div>
             <%= link_to execution.pr_url, 
                 target: "_blank", 
                 rel: "noopener",
-                class: "inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors" do %>
-              View PR on GitHub
+                class: "inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors" do %>
+              View PR
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
@@ -146,16 +146,16 @@
 
       <%# Preview URL if available %>
       <% if execution.preview_url.present? %>
-        <div class="rounded-lg bg-blue-50 border border-blue-200 p-4">
+        <div class="rounded-lg bg-blue-900/30 border border-blue-700/50 p-4">
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="text-sm font-semibold text-blue-900">Preview Available</h4>
-              <p class="text-xs text-blue-700">Test the changes live</p>
+              <h4 class="text-sm font-semibold text-blue-400">Preview Available</h4>
+              <p class="text-xs text-blue-500">Test the changes live</p>
             </div>
             <%= link_to execution.preview_url, 
                 target: "_blank", 
                 rel: "noopener",
-                class: "inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors" do %>
+                class: "inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors" do %>
               Open Preview
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -167,7 +167,7 @@
 
       <%# Summary %>
       <% if execution.summary.present? %>
-        <div class="prose prose-sm max-w-none text-slate-700 bg-slate-50 rounded-lg p-4">
+        <div class="prose prose-sm prose-invert max-w-none text-slate-300 bg-slate-900 rounded-lg p-4">
           <%= render_markdown(execution.summary) %>
         </div>
       <% end %>

@@ -1,0 +1,32 @@
+<%# Properties Panel - Middle column with status, overview, and artifacts %>
+<% req = local_assigns[:request] || @request %>
+
+<div class="h-full flex flex-col">
+  <%# Panel Header %>
+  <div class="px-4 py-3 border-b border-slate-700">
+    <h2 class="text-xs font-medium text-slate-400 uppercase tracking-wider">Status & Artifacts</h2>
+  </div>
+  
+  <%# Scrollable content area %>
+  <div class="flex-1 overflow-y-auto">
+    <%# Phase Stepper %>
+    <div id="phase_stepper_<%= req.id %>">
+      <%= render "phase_stepper", request: req %>
+    </div>
+
+    <%# Artifacts %>
+    <div id="artifacts_<%= req.id %>">
+      <%= render "artifacts_stack", request: req %>
+    </div>
+
+    <%# PR Review Link %>
+    <div id="pr_review_link_<%= req.id %>">
+      <%= render "pr_review_link", request: req %>
+    </div>
+
+    <%# Team Comments %>
+    <div id="team_comments_<%= req.id %>">
+      <%= render "team_comments", request: req %>
+    </div>
+  </div>
+</div>

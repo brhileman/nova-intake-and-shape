@@ -10,13 +10,13 @@
     <%# Avatar %>
     <div class="flex items-end gap-2 <%= is_user ? 'flex-row-reverse' : '' %>">
       <div class="flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center 
-                  <%= is_user ? 'bg-[#00b4d8]' : 'bg-slate-200' %>">
+                  <%= is_user ? 'bg-cyan-600' : 'bg-slate-700' %>">
         <% if is_user %>
           <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         <% else %>
-          <svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         <% end %>
@@ -24,16 +24,16 @@
       
       <%# Message bubble %>
       <div class="rounded-2xl px-4 py-2 
-                  <%= is_user ? 'bg-[#00b4d8] text-white rounded-br-md' : 'bg-slate-100 text-slate-700 rounded-bl-md' %>">
-        <div class="text-sm break-words prose prose-sm max-w-none 
-                    <%= is_user ? 'prose-invert text-white [&_*]:text-white' : '' %>">
+                  <%= is_user ? 'bg-cyan-600 text-white rounded-br-md' : 'bg-slate-800 text-slate-200 rounded-bl-md border border-slate-700' %>">
+        <div class="text-sm break-words prose prose-sm prose-invert max-w-none 
+                    <%= is_user ? 'text-white [&_*]:text-white' : 'text-slate-200' %>">
           <%= render_markdown(text.truncate(10000)) %>
         </div>
       </div>
     </div>
     
     <%# Label %>
-    <p class="mt-1 text-xs text-slate-400 <%= is_user ? 'text-right mr-9' : 'ml-9' %>">
+    <p class="mt-1 text-xs text-slate-500 <%= is_user ? 'text-right mr-9' : 'ml-9' %>">
       <%= is_user ? 'You' : 'Agent' %>
     </p>
   </div>

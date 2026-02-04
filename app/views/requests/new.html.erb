@@ -1,6 +1,6 @@
 <div class="max-w-2xl mx-auto">
   <div class="mb-8">
-    <%= link_to requests_path, class: "inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700" do %>
+    <%= link_to requests_path, class: "inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200" do %>
       <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
       </svg>
@@ -8,17 +8,17 @@
     <% end %>
   </div>
 
-  <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
-    <div class="px-6 py-5 border-b border-slate-200">
-      <h1 class="text-xl font-bold text-[#1a1a2e]">New Request</h1>
-      <p class="mt-1 text-sm text-slate-500">
+  <div class="bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
+    <div class="px-6 py-5 border-b border-slate-700">
+      <h1 class="text-xl font-bold text-slate-100">New Request</h1>
+      <p class="mt-1 text-sm text-slate-400">
         Describe what you want to build, update, or fix. The intake agent will help clarify the details.
       </p>
     </div>
 
     <%= form_with model: @request, class: "p-6" do |f| %>
       <% if @request.errors.any? %>
-        <div class="mb-6 rounded-lg bg-red-50 p-4 border border-red-200">
+        <div class="mb-6 rounded-lg bg-red-900/50 p-4 border border-red-700">
           <div class="flex">
             <div class="flex-shrink-0">
               <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -26,8 +26,8 @@
               </svg>
             </div>
             <div class="ml-3">
-              <h3 class="text-sm font-medium text-red-800">Please fix the following errors:</h3>
-              <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
+              <h3 class="text-sm font-medium text-red-300">Please fix the following errors:</h3>
+              <ul class="mt-2 text-sm text-red-400 list-disc list-inside">
                 <% @request.errors.full_messages.each do |msg| %>
                   <li><%= msg %></li>
                 <% end %>
@@ -39,18 +39,18 @@
 
       <div class="space-y-6">
         <div>
-          <%= f.label :original_input, "What do you need?", class: "block text-sm font-medium text-slate-700 mb-2" %>
+          <%= f.label :original_input, "What do you need?", class: "block text-sm font-medium text-slate-300 mb-2" %>
           <%= f.text_area :original_input, 
               rows: 6, 
               placeholder: "Example: Add a dark mode toggle to the settings page that saves the user's preference...",
-              class: "block w-full rounded-lg border-slate-300 shadow-sm focus:border-[#00b4d8] focus:ring-[#00b4d8] text-slate-900 placeholder:text-slate-400 px-3 py-2" %>
-          <p class="mt-2 text-sm text-slate-500">
+              class: "block w-full rounded-lg bg-slate-700 border-slate-600 shadow-sm focus:border-[#00b4d8] focus:ring-[#00b4d8] text-slate-100 placeholder:text-slate-500 px-3 py-2" %>
+          <p class="mt-2 text-sm text-slate-400">
             Be as specific as possible. Include context about the feature, bug, or enhancement.
           </p>
         </div>
 
-        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-          <%= link_to "Cancel", requests_path, class: "rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors" %>
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+          <%= link_to "Cancel", requests_path, class: "rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-700 transition-colors" %>
           <%= f.submit "Create Request", 
               class: "rounded-lg bg-[#00b4d8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0096b4] transition-colors cursor-pointer" %>
         </div>

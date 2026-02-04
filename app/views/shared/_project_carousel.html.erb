@@ -1,0 +1,54 @@
+<%# Project carousel with status indicators %>
+<div class="mb-8 border border-slate-700 rounded-xl bg-slate-800/50 p-6" 
+     data-controller="carousel"
+     data-action="resize@window->carousel#checkOverflow">
+  <h2 class="text-sm font-medium text-slate-400 mb-4">My projects</h2>
+  
+  <div class="relative">
+    <%# Scrollable project list %>
+    <div class="flex gap-6 overflow-x-auto pb-2 pr-10 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent"
+         data-carousel-target="container"
+         data-action="scroll->carousel#checkOverflow">
+      <% projects.each do |project| %>
+        <% pending_count = current_user ? project.requests.needs_action_from(current_user).count : 0 %>
+        <% has_pending = pending_count > 0 %>
+        
+        <%= link_to project_path(project), class: "flex-shrink-0 flex flex-col items-center group" do %>
+          <%# Project icon with status indicator %>
+          <div class="relative w-20 h-20 rounded-2xl border-2 <%= has_pending ? 'border-slate-600 bg-slate-800' : 'border-slate-700 bg-slate-800' %> flex items-center justify-center mb-2 group-hover:border-[#00b4d8] transition-colors">
+            <% if has_pending %>
+              <%# Exclamation mark for pending actions %>
+              <div class="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center">
+                <svg class="w-6 h-6 text-slate-100" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+              </div>
+            <% else %>
+              <%# Checkmark for all caught up %>
+              <div class="w-10 h-10 rounded-full border-2 border-slate-600 flex items-center justify-center">
+                <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            <% end %>
+          </div>
+          
+          <%# Project name %>
+          <span class="text-xs font-medium text-slate-300 group-hover:text-white transition-colors text-center max-w-20 truncate">
+            <%= project.name %>
+          </span>
+        <% end %>
+      <% end %>
+    </div>
+    
+    <%# Scroll indicator - fixed at far right, only visible when overflow %>
+    <button type="button"
+            class="absolute right-0 top-0 bottom-2 w-10 flex items-center justify-center bg-gradient-to-l from-slate-800 via-slate-800/95 to-transparent cursor-pointer hover:from-slate-700 transition-colors hidden"
+            data-carousel-target="scrollButton"
+            data-action="click->carousel#scrollRight">
+      <svg class="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+  </div>
+</div>

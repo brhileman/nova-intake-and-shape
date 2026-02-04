@@ -8,37 +8,37 @@
   artifact = local_assigns[:artifact]
   req = local_assigns[:request] || @request
 
-  # Status styling
+  # Status styling - dark mode (subtle variant)
   status_config = case status
   when :not_started
     { 
       label: "Not Started", 
-      bg: "bg-slate-100", 
+      bg: "bg-slate-800/50", 
       text: "text-slate-500",
-      border: "border-slate-200",
-      icon_bg: "bg-slate-100",
-      icon_color: "text-slate-400",
-      dot_color: "bg-slate-400"
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
+      icon_color: "text-slate-500",
+      dot_color: "bg-slate-500"
     }
   when :drafted
     { 
       label: "Drafted", 
-      bg: "bg-amber-50", 
-      text: "text-amber-700",
-      border: "border-amber-200",
-      icon_bg: "bg-amber-100",
-      icon_color: "text-amber-600",
-      dot_color: "bg-amber-500"
+      bg: "bg-slate-800/50", 
+      text: "text-amber-500/80",
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
+      icon_color: "text-slate-400",
+      dot_color: "bg-amber-500/70"
     }
   when :approved
     { 
       label: "Approved", 
-      bg: "bg-emerald-50", 
-      text: "text-emerald-700",
-      border: "border-emerald-200",
-      icon_bg: "bg-emerald-100",
-      icon_color: "text-emerald-600",
-      dot_color: "bg-emerald-500"
+      bg: "bg-slate-800/50", 
+      text: "text-emerald-500/80",
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
+      icon_color: "text-slate-400",
+      dot_color: "bg-emerald-500/70"
     }
   end
 
@@ -60,6 +60,30 @@
 
   modal_id = "#{artifact_type}_modal_#{req.id}"
   is_clickable = artifact.present?
+  
+  # Determine pending approvals for the button indicator
+  pending_approvals = []
+  if status == :drafted
+    required_roles = case artifact_type
+      when "brief" then [["PM", :pm]]
+      when "plan" then [["PM", :pm], ["Dev", :dev]]
+      end
+    
+    approval_status = case artifact_type
+      when "brief" then req.brief_approval_status
+      when "plan" then req.plan_approval_status
+      end
+    
+    # Only show pending approvals when in the appropriate review state
+    show_pending = (artifact_type == "brief" && req.status == "intake_clarified") ||
+                   (artifact_type == "plan" && req.status == "planning_clarified")
+    
+    if show_pending && required_roles && approval_status
+      required_roles.each do |role_label, role_key|
+        pending_approvals << role_label unless approval_status[role_key]
+      end
+    end
+  end
 %>
 
 <div data-controller="modal">
@@ -67,9 +91,9 @@
   <% if is_clickable %>
     <button type="button"
             data-action="click->modal#open"
-            class="w-full rounded-lg border <%= status_config[:border] %> <%= status_config[:bg] %> p-3 text-left transition-all hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#00b4d8]/20 group">
+            class="w-full rounded-lg border <%= status_config[:border] %> <%= status_config[:bg] %> p-3 text-left transition-all hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 group">
   <% else %>
-    <div class="w-full rounded-lg border border-dashed border-slate-300 p-3 opacity-60">
+    <div class="w-full rounded-lg border border-dashed border-slate-600 p-3 opacity-60">
   <% end %>
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -82,7 +106,7 @@
         <%# Title & Status %>
         <div>
           <div class="flex items-center gap-2">
-            <h4 class="text-sm font-medium text-slate-900"><%= type_config[:title] %></h4>
+            <h4 class="text-sm font-medium text-slate-100"><%= type_config[:title] %></h4>
             <%# Status badge %>
             <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium <%= status_config[:bg] %> <%= status_config[:text] %>">
               <span class="h-1.5 w-1.5 rounded-full <%= status_config[:dot_color] %>"></span>
@@ -90,11 +114,19 @@
             </span>
           </div>
           <p class="text-xs text-slate-500"><%= type_config[:subtitle] %></p>
+          <% if pending_approvals.any? %>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Pending Approvals: 
+              <% pending_approvals.each_with_index do |role, idx| %>
+                <span class="text-amber-400/80 font-medium"><%= role %></span><%= ", " unless idx == pending_approvals.length - 1 %>
+              <% end %>
+            </p>
+          <% end %>
         </div>
       </div>
       <%# Arrow indicator (only if clickable) %>
       <% if is_clickable %>
-        <svg class="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
       <% end %>
@@ -110,10 +142,10 @@
     <dialog id="<%= modal_id %>" 
             data-modal-target="dialog"
             data-action="click->modal#backdropClick"
-            class="fixed z-50 w-full max-w-2xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm m-auto">
+            class="fixed z-50 w-full max-w-2xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
       <div class="flex flex-col max-h-[85vh]">
         <%# Modal Header %>
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white rounded-t-xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700 rounded-t-xl">
           <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-lg <%= status_config[:icon_bg] %>">
               <svg class="h-5 w-5 <%= status_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -121,14 +153,14 @@
               </svg>
             </div>
             <div>
-              <h2 class="text-lg font-semibold text-slate-900"><%= type_config[:title] %></h2>
+              <h2 class="text-lg font-semibold text-slate-100"><%= type_config[:title] %></h2>
               <div class="flex items-center gap-2 mt-0.5">
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium <%= status_config[:bg] %> <%= status_config[:text] %>">
                   <span class="h-1.5 w-1.5 rounded-full <%= status_config[:dot_color] %>"></span>
                   <%= status_config[:label] %>
                 </span>
                 <% if artifact_type == "plan" && req.requires_design_input? %>
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-900/50 text-amber-400">
                     Design Input Needed
                   </span>
                 <% end %>
@@ -137,7 +169,7 @@
           </div>
           <button type="button"
                   data-action="click->modal#close"
-                  class="rounded-lg p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                  class="rounded-lg p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -145,9 +177,9 @@
         </div>
 
         <%# Modal Body %>
-        <div class="flex-1 overflow-y-auto p-6 bg-slate-50">
+        <div class="flex-1 overflow-y-auto p-6 bg-slate-800">
           <% if artifact_type == "plan" && req.requires_design_input? %>
-            <div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-4">
+            <div class="mb-4 rounded-lg bg-amber-900/30 border border-amber-700/50 p-4">
               <div class="flex">
                 <div class="flex-shrink-0">
                   <svg class="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
@@ -155,24 +187,132 @@
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <h3 class="text-sm font-semibold text-amber-800">Design Input Needed</h3>
-                  <p class="mt-1 text-sm text-amber-700">This plan requires design review before execution.</p>
+                  <h3 class="text-sm font-semibold text-amber-400">Design Input Needed</h3>
+                  <p class="mt-1 text-sm text-amber-500">This plan requires design review before execution.</p>
                 </div>
               </div>
             </div>
           <% end %>
-          <div class="prose prose-sm max-w-none text-slate-700 bg-white rounded-lg p-6 border border-slate-200">
+          <div class="prose prose-sm prose-invert max-w-none text-slate-300 bg-slate-900 rounded-lg p-6 border border-slate-700">
             <%= render_markdown(artifact.content) %>
           </div>
         </div>
 
         <%# Modal Footer %>
-        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-white rounded-b-xl">
-          <button type="button"
-                  data-action="click->modal#close"
-                  class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-            Close
-          </button>
+        <div class="px-6 py-4 border-t border-slate-700 rounded-b-xl">
+          <%# Approval UI - shown when artifact is drafted and awaiting approval %>
+          <% 
+            show_approval = status == :drafted && (
+              (artifact_type == "brief" && req.status == "intake_clarified") ||
+              (artifact_type == "plan" && req.status == "planning_clarified")
+            )
+          %>
+          <% if show_approval %>
+            <%
+              required_roles = case artifact_type
+                when "brief" then [["PM", :pm]]
+                when "plan" then [["PM", :pm], ["Dev", :dev]]
+                end
+              
+              approval_status = case artifact_type
+                when "brief" then req.brief_approval_status
+                when "plan" then req.plan_approval_status
+                end
+              
+              can_approve = req.can_user_approve?(current_user)
+              
+              # Determine if this approval will be the final one that triggers the agent
+              # Count existing approvals vs required
+              existing_approvals = approval_status.values.compact.count
+              required_count = required_roles.count
+              is_final_approval = can_approve && (existing_approvals == required_count - 1)
+              
+              # Set CTA text based on whether this is the final approval
+              cta_text, cta_helper = case artifact_type
+                when "brief"
+                  # Brief only needs PM, so it's always the final approval
+                  ["Approve, start agent planning", "Approving will start the planning phase"]
+                when "plan"
+                  if is_final_approval
+                    ["Approve, start agent execution", "This approval will start the execution phase"]
+                  else
+                    ["Approve Plan", "Requires both PM and Dev approval"]
+                  end
+                end
+            %>
+            
+            <div class="space-y-3">
+              <%# Approval status row %>
+              <div class="flex items-center gap-4">
+                <p class="text-sm font-medium text-slate-300">Approvals Required:</p>
+                <div class="flex items-center gap-3">
+                  <% required_roles.each do |role_label, role_key| %>
+                    <% approval = approval_status[role_key] %>
+                    <div class="flex items-center gap-1.5">
+                      <% if approval %>
+                        <%# Approved - green check %>
+                        <svg class="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="text-xs text-emerald-400 font-medium"><%= role_label %></span>
+                        <span class="text-xs text-slate-500">(<%= approval.user.name %>)</span>
+                      <% else %>
+                        <%# Pending - gray circle %>
+                        <svg class="h-4 w-4 text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="text-xs text-slate-400"><%= role_label %></span>
+                        <span class="text-xs text-slate-500">(pending)</span>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+              
+              <%# Action row %>
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <% if can_approve %>
+                    <p class="text-xs text-slate-400"><%= cta_helper %></p>
+                  <% elsif current_user %>
+                    <% phase = req.current_approval_phase %>
+                    <% if req.user_has_approved_phase?(current_user, phase) %>
+                      <p class="text-xs text-emerald-400">You have already approved this <%= phase %>.</p>
+                    <% else %>
+                      <p class="text-xs text-amber-400">Your role (<%= current_user.role.upcase %>) cannot approve this phase.</p>
+                    <% end %>
+                  <% end %>
+                </div>
+                <% if can_approve %>
+                  <%= button_to approve_request_path(req), 
+                      method: :post,
+                      data: { turbo_stream: true },
+                      class: "shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors inline-flex items-center gap-1.5" do %>
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <%= cta_text %>
+                  <% end %>
+                <% else %>
+                  <div class="shrink-0 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-slate-500 inline-flex items-center gap-1.5 cursor-not-allowed">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <%= cta_text %>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% else %>
+            <%# Standard close button when not in approval state %>
+            <div class="flex items-center justify-end gap-3">
+              <button type="button"
+                      data-action="click->modal#close"
+                      class="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 transition-colors">
+                Close
+              </button>
+            </div>
+          <% end %>
         </div>
       </div>
     </dialog>

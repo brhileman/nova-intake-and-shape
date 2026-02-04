@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full dark">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nova Flow</title>
+    <link rel="icon" type="image/png" href="/novaflow_favicon.png">
     <meta name="turbo-cache-control" content="no-preview">
     
     <%= csrf_meta_tags %>
@@ -12,7 +13,7 @@
     <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-  <body class="h-full bg-slate-50 text-slate-700">
+  <body class="h-full bg-slate-900 text-slate-100">
     <%# Full-page loading overlay %>
     <div id="page-loading-overlay" class="page-loading-overlay">
       <div class="page-loading-spinner">
@@ -21,139 +22,118 @@
       </div>
     </div>
 
-    <div class="min-h-full">
-      <!-- Header -->
-      <header class="bg-gradient-to-r from-[#0046B8] via-[#0055D4] to-[#0066FF] shadow-lg">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div class="flex h-16 items-center justify-between">
-            <div class="flex items-center">
-              <%= link_to root_path, class: "flex items-center" do %>
-                <img src="/nova-logo-white.png" alt="Nova" class="h-7 w-auto" />
-                <span class="text-xl font-extralight text-white ml-[15px] -mt-0.5">Flow</span>
-              <% end %>
-            </div>
-            <div class="flex items-center gap-6">
-              <%# User selector dropdown %>
-              <% if current_user %>
-                <div class="relative" data-controller="dropdown">
-                  <button type="button" 
-                          class="flex items-center gap-2 text-sm text-blue-200 hover:text-white transition-colors cursor-pointer"
-                          data-action="click->dropdown#toggle"
-                          data-dropdown-target="button">
-                    <span>User:</span>
-                    <span class="text-white font-medium"><%= current_user.name %></span>
-                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium <%= user_role_badge_class_light(current_user) %>">
-                      <%= current_user.role_label %>
-                    </span>
-                    <svg class="h-4 w-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  <div class="hidden absolute right-0 mt-2 w-56 rounded-md bg-[#003D9E] shadow-lg ring-1 ring-black ring-opacity-5 z-50"
-                       data-dropdown-target="menu">
-                    <div class="py-1">
-                      <% all_users.each do |user| %>
-                        <%= button_to select_user_path(user), 
-                                      method: :post, 
-                                      class: "w-full text-left px-4 py-2 text-sm flex items-center justify-between #{user.id == current_user.id ? 'text-white bg-[#0055D4]' : 'text-blue-100 hover:bg-[#0055D4] hover:text-white'} transition-colors cursor-pointer" do %>
-                          <div class="flex items-center gap-2">
-                            <span><%= user.name %></span>
-                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium <%= user_role_badge_class_light(user) %>">
-                              <%= user.role_label %>
-                            </span>
-                          </div>
-                          <% if user.id == current_user.id %>
-                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                          <% end %>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
-
-              <%# Project selector dropdown %>
-              <% if current_project && !(controller_name == "requests" && action_name == "show") %>
-                <div class="relative" data-controller="dropdown">
-                  <button type="button" 
-                          class="flex items-center gap-2 text-sm text-blue-200 hover:text-white transition-colors cursor-pointer"
-                          data-action="click->dropdown#toggle"
-                          data-dropdown-target="button">
-                    <span>Project:</span>
-                    <span class="text-white font-medium"><%= current_project.name %></span>
-                    <svg class="h-4 w-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  <div class="hidden absolute right-0 mt-2 w-56 rounded-md bg-[#003D9E] shadow-lg ring-1 ring-black ring-opacity-5 z-50"
-                       data-dropdown-target="menu">
-                    <div class="py-1">
-                      <% all_projects.each do |project| %>
-                        <%= button_to select_project_path(project), 
-                                      method: :post, 
-                                      class: "w-full text-left px-4 py-2 text-sm flex items-center justify-between #{project.id == current_project.id ? 'text-white bg-[#0055D4]' : 'text-blue-100 hover:bg-[#0055D4] hover:text-white'} transition-colors cursor-pointer" do %>
-                          <span><%= project.name %></span>
-                          <% if project.id == current_project.id %>
-                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                          <% end %>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <!-- Flash messages -->
-      <% if notice %>
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4" data-controller="flash" data-flash-delay-value="3000">
-          <div class="rounded-lg bg-emerald-50 p-4 border border-emerald-200">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
-                </svg>
+    <div class="<%= content_for?(:full_width) ? 'h-full flex flex-col' : 'min-h-full' %>">
+      <%# Header - hidden for full-width IDE layout %>
+      <% unless content_for?(:full_width) %>
+        <!-- Header -->
+        <header class="bg-slate-900 border-b border-slate-700 flex-shrink-0">
+          <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 items-center justify-between">
+              <div class="flex items-center">
+                <%= link_to root_path, class: "flex items-center" do %>
+                  <img src="/nova-logo-white.png" alt="Nova" class="h-7 w-auto" />
+                  <span class="text-xl font-extralight text-white ml-[15px] -mt-0.5">Flow</span>
+                <% end %>
               </div>
-              <div class="ml-3">
-                <p class="text-sm font-medium text-emerald-800"><%= notice %></p>
+              <div class="flex items-center gap-6">
+                <%# User selector dropdown %>
+                <% if current_user %>
+                  <div class="relative" data-controller="dropdown">
+                    <button type="button" 
+                            class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            data-action="click->dropdown#toggle"
+                            data-dropdown-target="button">
+                      <span>User:</span>
+                      <span class="text-white font-medium"><%= current_user.name %></span>
+                      <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium <%= user_role_badge_class_light(current_user) %>">
+                        <%= current_user.role_label %>
+                      </span>
+                      <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    <div class="hidden absolute right-0 mt-2 w-56 rounded-md bg-slate-800 shadow-lg ring-1 ring-slate-700 z-50"
+                         data-dropdown-target="menu">
+                      <div class="py-1">
+                        <% all_users.each do |user| %>
+                          <%= button_to select_user_path(user), 
+                                        method: :post, 
+                                        class: "w-full text-left px-4 py-2 text-sm flex items-center justify-between #{user.id == current_user.id ? 'text-white bg-slate-700' : 'text-slate-300 hover:bg-slate-700 hover:text-white'} transition-colors cursor-pointer" do %>
+                            <div class="flex items-center gap-2">
+                              <span><%= user.name %></span>
+                              <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium <%= user_role_badge_class_light(user) %>">
+                                <%= user.role_label %>
+                              </span>
+                            </div>
+                            <% if user.id == current_user.id %>
+                              <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                              </svg>
+                            <% end %>
+                          <% end %>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
               </div>
             </div>
           </div>
-        </div>
+        </header>
       <% end %>
 
-      <% if alert %>
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4" data-controller="flash" data-flash-delay-value="5000">
-          <div class="rounded-lg bg-amber-50 p-4 border border-amber-200">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                </svg>
-              </div>
-              <div class="ml-3">
-                <p class="text-sm font-medium text-amber-800"><%= alert %></p>
+      <%# Flash messages - only show for non-full-width pages %>
+      <% unless content_for?(:full_width) %>
+        <% if notice %>
+          <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4" data-controller="flash" data-flash-delay-value="3000">
+            <div class="rounded-lg bg-emerald-900/50 p-4 border border-emerald-700">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm font-medium text-emerald-300"><%= notice %></p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        <% end %>
+
+        <% if alert %>
+          <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-4" data-controller="flash" data-flash-delay-value="5000">
+            <div class="rounded-lg bg-amber-900/50 p-4 border border-amber-700">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm font-medium text-amber-300"><%= alert %></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% end %>
       <% end %>
 
       <!-- Main content -->
-      <main class="py-8">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <% if content_for?(:full_width) %>
+        <%# Full-width IDE layout for request detail page %>
+        <main class="flex-1">
           <%= yield %>
-        </div>
-      </main>
+        </main>
+      <% else %>
+        <%# Standard layout with max-width container %>
+        <main class="py-8">
+          <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <%= yield %>
+          </div>
+        </main>
+      <% end %>
     </div>
   </body>
 </html>

@@ -19,37 +19,37 @@
     :optional
   end
 
-  # Status styling
+  # Status styling - dark mode (subtle variant)
   status_config = case status
   when :optional
     { 
       label: "Optional", 
-      bg: "bg-slate-50", 
-      text: "text-slate-600",
-      border: "border-slate-200",
-      icon_bg: "bg-slate-100",
+      bg: "bg-slate-800/50", 
+      text: "text-slate-500",
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
       icon_color: "text-slate-500",
-      dot_color: "bg-slate-400"
+      dot_color: "bg-slate-500"
     }
   when :needs_input
     { 
       label: "Needs Input", 
-      bg: "bg-amber-50", 
-      text: "text-amber-700",
-      border: "border-amber-200",
-      icon_bg: "bg-amber-100",
-      icon_color: "text-amber-600",
-      dot_color: "bg-amber-500"
+      bg: "bg-slate-800/50", 
+      text: "text-amber-500/80",
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
+      icon_color: "text-slate-400",
+      dot_color: "bg-amber-500/70"
     }
   when :provided
     { 
       label: "Provided", 
-      bg: "bg-emerald-50", 
-      text: "text-emerald-700",
-      border: "border-emerald-200",
-      icon_bg: "bg-emerald-100",
-      icon_color: "text-emerald-600",
-      dot_color: "bg-emerald-500"
+      bg: "bg-slate-800/50", 
+      text: "text-emerald-500/80",
+      border: "border-slate-700/50",
+      icon_bg: "bg-slate-800",
+      icon_color: "text-slate-400",
+      dot_color: "bg-emerald-500/70"
     }
   end
 
@@ -59,7 +59,7 @@
     <%# Button %>
     <button type="button"
             data-action="click->modal#open"
-            class="w-full rounded-lg border <%= status_config[:border] %> <%= status_config[:bg] %> p-3 text-left transition-all hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#00b4d8]/20 group">
+            class="w-full rounded-lg border <%= status_config[:border] %> <%= status_config[:bg] %> p-3 text-left transition-all hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 group">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <%# Icon %>
@@ -71,7 +71,7 @@
           <%# Title & Status %>
           <div>
             <div class="flex items-center gap-2">
-              <h4 class="text-sm font-medium text-slate-900">Design</h4>
+              <h4 class="text-sm font-medium text-slate-100">Design</h4>
               <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium <%= status_config[:bg] %> <%= status_config[:text] %>">
                 <span class="h-1.5 w-1.5 rounded-full <%= status_config[:dot_color] %>"></span>
                 <%= status_config[:label] %>
@@ -81,7 +81,7 @@
           </div>
         </div>
         <%# Arrow indicator %>
-        <svg class="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
       </div>
@@ -91,10 +91,10 @@
     <dialog id="<%= modal_id %>" 
             data-modal-target="dialog"
             data-action="click->modal#backdropClick"
-            class="fixed z-50 w-full max-w-2xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm m-auto">
+            class="fixed z-50 w-full max-w-2xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
       <div class="flex flex-col max-h-[85vh]">
         <%# Modal Header %>
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white rounded-t-xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700 rounded-t-xl">
           <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-lg <%= status_config[:icon_bg] %>">
               <svg class="h-5 w-5 <%= status_config[:icon_color] %>" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -102,7 +102,7 @@
               </svg>
             </div>
             <div>
-              <h2 class="text-lg font-semibold text-slate-900">Design Guidance</h2>
+              <h2 class="text-lg font-semibold text-slate-100">Design Guidance</h2>
               <div class="flex items-center gap-2 mt-0.5">
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium <%= status_config[:bg] %> <%= status_config[:text] %>">
                   <span class="h-1.5 w-1.5 rounded-full <%= status_config[:dot_color] %>"></span>
@@ -113,7 +113,7 @@
           </div>
           <button type="button"
                   data-action="click->modal#close"
-                  class="rounded-lg p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                  class="rounded-lg p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -121,7 +121,7 @@
         </div>
 
         <%# Modal Body %>
-        <div class="flex-1 overflow-y-auto p-6 bg-slate-50">
+        <div class="flex-1 overflow-y-auto p-6 bg-slate-800">
             <%# Form for adding/editing guidance %>
             <%= form_with url: request_design_guidance_path(req), 
                           method: guidance ? :patch : :post,
@@ -132,7 +132,7 @@
                           class: "space-y-4" do |f| %>
               
               <% if is_required %>
-                <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-4">
+                <div class="rounded-lg bg-amber-900/30 border border-amber-700/50 p-4 mb-4">
                   <div class="flex">
                     <div class="flex-shrink-0">
                       <svg class="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
@@ -140,13 +140,13 @@
                       </svg>
                     </div>
                     <div class="ml-3">
-                      <h3 class="text-sm font-semibold text-amber-800">Design Input Required</h3>
-                      <p class="mt-1 text-sm text-amber-700">This request needs design guidance before the agent can implement it.</p>
+                      <h3 class="text-sm font-semibold text-amber-400">Design Input Required</h3>
+                      <p class="mt-1 text-sm text-amber-500">This request needs design guidance before the agent can implement it.</p>
                     </div>
                   </div>
                 </div>
               <% else %>
-                <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 mb-4">
+                <div class="rounded-lg bg-slate-700 border border-slate-600 p-4 mb-4">
                   <div class="flex">
                     <div class="flex-shrink-0">
                       <svg class="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
@@ -154,34 +154,34 @@
                       </svg>
                     </div>
                     <div class="ml-3">
-                      <h3 class="text-sm font-semibold text-slate-700">Optional Design Guidance</h3>
-                      <p class="mt-1 text-sm text-slate-600">You can add design screenshots or specifications to help guide the implementation.</p>
+                      <h3 class="text-sm font-semibold text-slate-200">Optional Design Guidance</h3>
+                      <p class="mt-1 text-sm text-slate-400">You can add design screenshots or specifications to help guide the implementation.</p>
                     </div>
                   </div>
                 </div>
               <% end %>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">
+                <label class="block text-sm font-medium text-slate-200 mb-2">
                   Design Screenshots
                 </label>
                 <% if guidance&.images&.attached? %>
                   <div class="grid grid-cols-2 gap-3 mb-3">
                     <% guidance.images.each do |image| %>
                       <div class="relative group">
-                        <%= image_tag image, class: "w-full h-32 object-cover rounded-lg border border-slate-200" %>
+                        <%= image_tag image, class: "w-full h-32 object-cover rounded-lg border border-slate-600" %>
                       </div>
                     <% end %>
                   </div>
                   <p class="text-xs text-slate-500 mb-2">Add more screenshots below</p>
                 <% end %>
-                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg hover:border-slate-400 transition-colors bg-white">
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-lg hover:border-slate-500 transition-colors bg-slate-900">
                   <div class="space-y-1 text-center">
-                    <svg class="mx-auto h-12 w-12 text-slate-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <svg class="mx-auto h-12 w-12 text-slate-500" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                       <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    <div class="flex text-sm text-slate-600">
-                      <label class="relative cursor-pointer rounded-md font-medium text-[#00b4d8] hover:text-[#0096b4] focus-within:outline-none">
+                    <div class="flex text-sm text-slate-400">
+                      <label class="relative cursor-pointer rounded-md font-medium text-cyan-400 hover:text-cyan-300 focus-within:outline-none">
                         <span>Upload files</span>
                         <%= f.file_field :images, 
                                          multiple: true, 
@@ -197,37 +197,37 @@
               </div>
 
               <div>
-                <label for="design_specifications" class="block text-sm font-medium text-slate-700 mb-2">
+                <label for="design_specifications" class="block text-sm font-medium text-slate-200 mb-2">
                   Design Specifications
                 </label>
                 <%= f.text_area :specifications,
                                id: "design_specifications",
                                rows: 5,
                                placeholder: "Describe the design requirements:\n- Component styles to use\n- Spacing and layout details\n- Color and typography notes\n- Interaction behaviors",
-                               class: "block w-full rounded-lg border-slate-300 shadow-sm focus:border-[#00b4d8] focus:ring-[#00b4d8] text-slate-900 placeholder:text-slate-400 px-3 py-2",
+                               class: "block w-full rounded-lg border-slate-600 bg-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 text-slate-200 placeholder:text-slate-500 px-3 py-2",
                                value: guidance&.specifications %>
               </div>
 
               <div>
-                <label for="design_figma_url" class="block text-sm font-medium text-slate-700 mb-2">
+                <label for="design_figma_url" class="block text-sm font-medium text-slate-200 mb-2">
                   Figma Link <span class="font-normal text-slate-500">(for reference only)</span>
                 </label>
                 <%= f.url_field :figma_url,
                                id: "design_figma_url",
                                placeholder: "https://www.figma.com/file/...",
-                               class: "block w-full rounded-lg border-slate-300 shadow-sm focus:border-[#00b4d8] focus:ring-[#00b4d8] text-slate-900 placeholder:text-slate-400 px-3 py-2",
+                               class: "block w-full rounded-lg border-slate-600 bg-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 text-slate-200 placeholder:text-slate-500 px-3 py-2",
                                value: guidance&.figma_url %>
                 <p class="mt-1 text-xs text-slate-500">This link is for team reference. The agent cannot access Figma directly.</p>
               </div>
 
-              <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+              <div class="pt-4 border-t border-slate-700 flex items-center justify-end gap-3">
                 <button type="button"
                         data-action="click->modal#close"
-                        class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                        class="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 transition-colors">
                   Cancel
                 </button>
                 <%= f.submit "Save Design Guidance",
-                            class: "px-4 py-2 text-sm font-semibold text-white bg-[#00b4d8] rounded-lg hover:bg-[#0096b4] transition-colors cursor-pointer" %>
+                            class: "px-4 py-2 text-sm font-semibold text-white bg-cyan-600 rounded-lg hover:bg-cyan-500 transition-colors cursor-pointer" %>
               </div>
             <% end %>
         </div>

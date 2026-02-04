@@ -5,7 +5,6 @@ class Request < ApplicationRecord
 
   belongs_to :project
   belongs_to :created_by, class_name: "User", optional: true
-  belongs_to :assignee, class_name: "User", optional: true
   has_many :briefs, dependent: :destroy
   has_many :plans, dependent: :destroy
   has_one :execution, dependent: :destroy
@@ -25,12 +24,12 @@ class Request < ApplicationRecord
   scope :by_phase, ->(phase) { where("status LIKE ?", "#{phase}%") }
   scope :in_review, -> { where("status LIKE '%_clarified' OR status LIKE '%_review'") }
 
-  # Scope for requests where user is on the project team (or has request-level override)
+  # Scope for requests where user is on the project team
   scope :for_team_member, ->(user) {
     return none unless user
 
     joins(:project).where(
-      "requests.assignee_id = :user_id OR projects.pm_id = :user_id OR projects.designer_id = :user_id OR projects.dev_id = :user_id",
+      "projects.pm_id = :user_id OR projects.designer_id = :user_id OR projects.dev_id = :user_id",
       user_id: user.id
     )
   }
@@ -198,29 +197,10 @@ class Request < ApplicationRecord
     plans.order(version: :desc).first
   end
 
-  # ========================================
-  # Project Team (with request-level override)
-  # ========================================
-
-  # Get effective PM: request override or project PM
-  def effective_pm
-    assignee&.pm? ? assignee : project.pm
-  end
-
-  # Get effective Designer: request override or project designer
-  def effective_designer
-    assignee&.designer? ? assignee : project.designer
-  end
-
-  # Get effective Dev: request override or project dev
-  def effective_dev
-    assignee&.dev? ? assignee : project.dev
-  end
-
-  # Check if user is on this request's team
+  # Check if user is on this request's team (via project assignment)
   def user_on_team?(user)
     return false unless user
-    [effective_pm, effective_designer, effective_dev].compact.include?(user)
+    [project.pm, project.designer, project.dev].compact.include?(user)
   end
 
   # ========================================

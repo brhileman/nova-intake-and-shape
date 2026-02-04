@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class RequestsController < ApplicationController
-  before_action :set_request, only: [ :show, :poll, :approve, :comment, :assign ]
+  before_action :set_request, only: [ :show, :poll, :approve, :comment, :team_comment ]
   before_action :require_project, only: [ :index, :new, :create ]
 
   # GET /requests
@@ -191,25 +191,35 @@ class RequestsController < ApplicationController
     end
   end
 
-  # PATCH /requests/:id/assign
-  def assign
-    assignee_id = params[:assignee_id]
-    
-    if assignee_id.present?
-      @request.update(assignee_id: assignee_id)
-      notice_message = "Request assigned to #{@request.assignee.name}"
-    else
-      @request.update(assignee_id: nil)
-      notice_message = "Request unassigned"
+  # POST /requests/:id/team_comment
+  # Add a team comment (internal discussion, outside agent context)
+  def team_comment
+    message = params[:message]
+
+    if message.blank?
+      respond_to do |format|
+        format.turbo_stream { head :unprocessable_entity }
+        format.html { redirect_to @request, alert: "Comment cannot be blank." }
+      end
+      return
     end
+
+    # Create team comment
+    @request.comments.create!(
+      user: current_user,
+      author_type: "user",
+      author_name: current_user&.name || "Team Member",
+      content: message,
+      comment_type: "team"
+    )
 
     respond_to do |format|
       format.turbo_stream do
         render turbo_stream: [
-          turbo_stream.update("assignment_#{@request.id}", partial: "assignment", locals: { request: @request })
+          turbo_stream.update("team_comments_#{@request.id}", partial: "team_comments", locals: { request: @request })
         ]
       end
-      format.html { redirect_to @request, notice: notice_message }
+      format.html { redirect_to @request }
     end
   end
 
@@ -232,6 +242,7 @@ class RequestsController < ApplicationController
           turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
           turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
           turbo_stream.update("pr_review_link_#{@request.id}", partial: "pr_review_link", locals: { request: @request }),
+          turbo_stream.update("team_comments_#{@request.id}", partial: "team_comments", locals: { request: @request }),
           turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end

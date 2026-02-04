@@ -6,10 +6,10 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   # Nova Flow UI routes
-  root "requests#index"
+  root "home#index"
 
-  # Project switching
-  resources :projects, only: [] do
+  # Projects - show for project-specific home, select for switching
+  resources :projects, only: [:show] do
     member do
       post :select
     end
@@ -24,10 +24,10 @@ Rails.application.routes.draw do
 
   resources :requests, only: [ :index, :show, :new, :create ] do
     member do
-      get :poll       # Polling endpoint - checks agent status, auto-transitions, returns Turbo Stream
-      post :comment   # Send message to agent (calls agent.followup)
-      post :approve   # Approve current phase, triggers state transition + launches next agent
-      patch :assign   # Assign request to a user
+      get :poll         # Polling endpoint - checks agent status, auto-transitions, returns Turbo Stream
+      post :comment     # Send message to agent (calls agent.followup)
+      post :approve     # Approve current phase, triggers state transition + launches next agent
+      post :team_comment # Add team comment (internal discussion, outside agent context)
     end
 
     # Nested singular resource for design guidance (one per request)

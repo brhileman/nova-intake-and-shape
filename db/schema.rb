@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_30_000005) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_03_032147) do
   create_schema "extensions"
 
   # These are extensions that must be enabled in order to support this database
@@ -75,12 +75,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000005) do
   create_table "public.comments", force: :cascade do |t|
     t.string "author_name"
     t.string "author_type"
+    t.string "comment_type", default: "agent_chat", null: false
     t.text "content"
     t.datetime "created_at", null: false
     t.string "phase"
     t.bigint "request_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["comment_type"], name: "index_comments_on_comment_type"
     t.index ["request_id"], name: "index_comments_on_request_id"
     t.index ["user_id"], name: "index_comments_on_user_id"
   end
@@ -136,7 +138,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000005) do
   end
 
   create_table "public.requests", force: :cascade do |t|
-    t.bigint "assignee_id"
     t.text "bug_summary"
     t.datetime "created_at", null: false
     t.bigint "created_by_id"
@@ -153,7 +154,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000005) do
     t.text "user_story_action"
     t.text "user_story_outcome"
     t.string "user_story_persona"
-    t.index ["assignee_id"], name: "index_requests_on_assignee_id"
     t.index ["created_by_id"], name: "index_requests_on_created_by_id"
     t.index ["project_id", "request_number"], name: "index_requests_on_project_id_and_request_number", unique: true
     t.index ["project_id"], name: "index_requests_on_project_id"
@@ -188,7 +188,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_30_000005) do
   add_foreign_key "public.projects", "public.users", column: "dev_id"
   add_foreign_key "public.projects", "public.users", column: "pm_id"
   add_foreign_key "public.requests", "public.projects"
-  add_foreign_key "public.requests", "public.users", column: "assignee_id"
   add_foreign_key "public.requests", "public.users", column: "created_by_id"
 
 end
