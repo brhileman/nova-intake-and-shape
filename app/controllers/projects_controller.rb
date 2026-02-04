@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 class ProjectsController < ApplicationController
+  before_action :set_project, only: [:show, :select, :context]
+
   def show
-    @project = Project.find(params[:id])
     @requests = @project.requests
 
     # Apply filters based on params (same logic as RequestsController)
@@ -23,8 +24,34 @@ class ProjectsController < ApplicationController
   end
 
   def select
-    project = Project.find(params[:id])
-    session[:current_project_id] = project.id
-    redirect_back(fallback_location: root_path, notice: "Switched to #{project.name}")
+    session[:current_project_id] = @project.id
+    redirect_back(fallback_location: root_path, notice: "Switched to #{@project.name}")
+  end
+
+  # GET /projects/:id/context - Show context editor (via Turbo Frame)
+  # POST /projects/:id/context - Save context
+  def context
+    if request.post?
+      @project.update!(context_docs: params[:context_docs])
+
+      respond_to do |format|
+        format.turbo_stream do
+          render turbo_stream: [
+            turbo_stream.update("context_save_status", html: '<span class="text-emerald-400 text-sm">Saved!</span>'.html_safe),
+            turbo_stream.replace("context_link", partial: "context_link", locals: { project: @project })
+          ]
+        end
+        format.html { redirect_to @project, notice: "Project context saved." }
+      end
+    else
+      # GET - render the editor
+      render layout: false
+    end
+  end
+
+  private
+
+  def set_project
+    @project = Project.find(params[:id])
   end
 end

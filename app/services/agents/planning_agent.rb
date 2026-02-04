@@ -9,7 +9,7 @@ module Agents
       1. DO NOT write any code or modify files
       2. ONLY respond with a text plan - no actions
       3. You CAN read files to analyze the codebase
-      4. Read `.cursor/nova-context.md` for project context and user personas
+      4. Use the Project Context (provided below) to understand the product, users, and constraints
       5. ALWAYS include a STATUS line at the END of your response
 
       ## Output Format
@@ -143,6 +143,9 @@ module Agents
 
         #{INSTRUCTIONS}
 
+        ## Project Context
+        #{project_context}
+
         ## Approved Brief
         #{latest_brief&.content || "No brief available"}
 
@@ -160,6 +163,9 @@ module Agents
 
       prompt = <<~PROMPT
         #{INSTRUCTIONS}
+
+        ## Project Context
+        #{project_context}
 
         ## Brief
         #{latest_brief&.content || "No brief available"}

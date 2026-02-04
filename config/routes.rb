@@ -12,6 +12,8 @@ Rails.application.routes.draw do
   resources :projects, only: [:show] do
     member do
       post :select
+      get :context      # Show context editor
+      post :context     # Save context
     end
   end
 

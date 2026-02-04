@@ -5,7 +5,7 @@ module Agents
     INSTRUCTIONS = <<~PROMPT
       You are an execution agent. Your job is to implement the approved plan.
 
-      Read `.cursor/nova-context.md` for project context if needed.
+      Use the Project Context (provided below) to understand the product, users, and constraints.
 
       1. Follow the plan precisely
       2. Commit and push your changes (PR is created automatically by the platform)
@@ -32,6 +32,9 @@ module Agents
         The plan has been approved. Now transition to the execution phase.
 
         #{INSTRUCTIONS}
+
+        ## Project Context
+        #{project_context}
 
         ## Approved Plan
         #{latest_plan&.content || "No plan available"}
@@ -76,6 +79,9 @@ module Agents
 
       prompt = <<~PROMPT
         #{INSTRUCTIONS}
+
+        ## Project Context
+        #{project_context}
 
         ## Approved Plan
         #{latest_plan&.content || "No plan available"}

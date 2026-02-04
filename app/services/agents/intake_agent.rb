@@ -28,11 +28,11 @@ module Agents
       Ask clarifying questions as needed. Use your judgment on what's important.
 
       ### For NEW or UPDATE requests:
-      First, read `.cursor/nova-context.md` for project context and user personas.
+      Use the Project Context (provided below) to understand the product, users, and constraints.
 
-      Work toward confirming a User Story using personas from that file:
+      Work toward confirming a User Story using personas from the project context:
 
-      **As a** [user persona from nova-context.md, e.g., "healthcare provider staff member"]
+      **As a** [user persona from project context]
       **I want** [specific action]
       **So that** [value/outcome]
 
@@ -91,6 +91,9 @@ module Agents
     def build_prompt
       prompt = <<~PROMPT
         #{INSTRUCTIONS}
+
+        ## Project Context
+        #{project_context}
 
         ## User Request
         #{@request.original_input}

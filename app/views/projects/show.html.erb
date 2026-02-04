@@ -2,8 +2,26 @@
 <%= render "shared/breadcrumbs", breadcrumbs: breadcrumb_for_project(@project) %>
 
 <div class="mb-6">
-  <h1 class="text-2xl font-bold text-slate-100"><%= @project.name %></h1>
-  <p class="text-slate-400 mt-1">Manage development requests for this project</p>
+  <div class="flex items-center gap-4" data-controller="modal">
+    <h1 class="text-2xl font-bold text-slate-100"><%= @project.name %></h1>
+    <%= render "context_link", project: @project %>
+
+    <%# Context Editor Modal %>
+    <dialog id="context_editor_modal"
+            data-modal-target="dialog"
+            data-action="click->modal#backdropClick"
+            class="fixed z-50 w-full max-w-3xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
+      <turbo-frame id="context_modal" src="<%= context_project_path(@project) %>" loading="lazy">
+        <div class="p-8 text-center text-slate-400">
+          <svg class="animate-spin h-8 w-8 mx-auto text-[#00b4d8]" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="mt-2">Loading...</p>
+        </div>
+      </turbo-frame>
+    </dialog>
+  </div>
 </div>
 
 <%# Filter tabs %>
