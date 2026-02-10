@@ -9,66 +9,48 @@ class RequestWorkflowTest < ApplicationSystemTestCase
 
   # ===================
   # End-to-End Flow Test
-  # Mirrors CLI: request_create -> review -> approve (x3 phases) -> completed
+  # Mirrors: request_create -> plan ready -> approve plan -> execution -> approve -> completed
   # ===================
 
   test "complete end-to-end request workflow" do
-    # Step 1: Visit requests index (equivalent to CLI project context)
+    # Step 1: Visit requests index
     visit requests_path
     assert_selector "h1", text: "Requests"
     assert_text "Test Project"
 
-    # Step 2: Create a new request (equivalent to: nova request_create)
+    # Step 2: Create a new request
     click_link "New Request"
     assert_selector "h1", text: "New Request"
 
     fill_in "What do you need?", with: "Add a dark mode toggle to the settings page"
     click_button "Create Request"
 
-    # Should redirect to show page with intake agent launched
-    assert_text "Request created. Intake agent launched."
-    assert_selector "[data-testid='phase-stepper']", visible: :any rescue nil
-    assert_text "Intake"
+    # Should redirect to show page with planning agent launched
+    assert_text "Request created. Planning agent launched."
 
     # Verify status is intake_in_progress
     request = Request.last
     assert_equal "intake_in_progress", request.status
 
-    # Step 3: Simulate agent completing intake (would normally happen async)
-    request.complete_intake!
+    # Step 3: Simulate agent completing intake with a plan
+    request.clarify_intake!
+    assert_equal "plan_ready", request.status
     visit request_path(request)
 
-    # Step 4: Review intake (equivalent to: nova review)
-    assert_text "Intake Conversation"
-    assert_selector "[data-testid='status-badge']", visible: :any rescue nil
-
-    # Step 5: Approve intake (equivalent to: nova approve)
-    # First need to mark it as review state
-    assert_equal "intake_review", request.reload.status
-    click_button "Approve & Continue"
-
-    assert_text "Intake approved. Planning agent launched."
-
-    # Verify moved to planning_in_progress
-    request.reload
-    assert request.status.start_with?("planning")
-
-    # Step 6: Simulate planning completion
-    request.complete_planning! if request.planning_in_progress?
+    # Step 4: Approve plan -> transitions to execution
+    # (In reality, both PM and Dev would need to approve)
+    # Simulate both approvals
+    request.approve_plan!
+    request.start_execution!
     visit request_path(request)
 
-    # Step 7: Approve planning
-    assert_equal "planning_review", request.reload.status
-    click_button "Approve & Continue"
+    assert_equal "execution_in_progress", request.reload.status
 
-    assert_text "Plan approved. Execution agent launched."
-
-    # Step 8: Simulate execution completion
-    request.reload
-    request.complete_execution! if request.execution_in_progress?
+    # Step 5: Simulate execution completion
+    request.complete_execution!
     visit request_path(request)
 
-    # Step 9: Approve execution - completes the request
+    # Step 6: Approve execution - completes the request
     assert_equal "execution_review", request.reload.status
     click_button "Approve & Continue"
 
@@ -80,13 +62,13 @@ class RequestWorkflowTest < ApplicationSystemTestCase
   # Individual Phase Tests
   # ===================
 
-  test "create new request and launch intake agent" do
+  test "create new request and launch planning agent" do
     visit new_request_path
 
     fill_in "What do you need?", with: "Fix the login button not working on mobile"
     click_button "Create Request"
 
-    assert_text "Request created. Intake agent launched."
+    assert_text "Request created. Planning agent launched."
 
     request = Request.last
     assert_equal "intake_in_progress", request.status
@@ -94,44 +76,13 @@ class RequestWorkflowTest < ApplicationSystemTestCase
     assert_equal "Fix the login button not working on mobile", request.original_input
   end
 
-  test "review intake phase shows conversation" do
-    request = create(:request, :intake_review, project: @project)
+  test "review plan ready phase shows plan" do
+    request = create(:request, :plan_ready, project: @project)
 
     visit request_path(request)
 
-    assert_text "Intake Conversation"
-    assert_text "Intake Review"
-    assert_selector "button", text: "Approve & Continue"
-  end
-
-  test "approve intake transitions to planning" do
-    request = create(:request, :intake_review, project: @project)
-
-    visit request_path(request)
-    click_button "Approve & Continue"
-
-    assert_text "Intake approved. Planning agent launched."
-    assert request.reload.status.start_with?("planning")
-  end
-
-  test "review planning phase shows brief and plan" do
-    request = create(:request, :planning_review, project: @project)
-
-    visit request_path(request)
-
-    assert_text "Planning Conversation"
-    assert_text "Brief"  # Should show brief artifact
-    assert_selector "button", text: "Approve & Continue"
-  end
-
-  test "approve planning transitions to execution" do
-    request = create(:request, :planning_review, project: @project)
-
-    visit request_path(request)
-    click_button "Approve & Continue"
-
-    assert_text "Plan approved. Execution agent launched."
-    assert request.reload.status.start_with?("execution")
+    assert_text "Plan"
+    assert_selector "button", text: "Approve"
   end
 
   test "review execution phase shows PR link when complete" do
@@ -139,8 +90,6 @@ class RequestWorkflowTest < ApplicationSystemTestCase
 
     visit request_path(request)
 
-    assert_text "Execution Conversation"
-    assert_text "Brief"
     assert_text "Plan"
     assert_selector "button", text: "Approve & Continue"
   end
@@ -169,8 +118,8 @@ class RequestWorkflowTest < ApplicationSystemTestCase
   # Comment/Followup Tests
   # ===================
 
-  test "send comment during intake review" do
-    request = create(:request, :intake_review, project: @project)
+  test "send comment during intake" do
+    request = create(:request, :intake_needs_clarification, project: @project)
 
     visit request_path(request)
 
@@ -185,36 +134,24 @@ class RequestWorkflowTest < ApplicationSystemTestCase
     assert_equal "intake", comment.phase
   end
 
-  test "send comment during planning review" do
-    request = create(:request, :planning_review, project: @project)
-
-    visit request_path(request)
-
-    fill_in placeholder: "Type your message...", with: "Please add more detail to step 2"
-    click_button "Send"
-
-    comment = request.comments.last
-    assert_equal "planning", comment.phase
-  end
-
   # ===================
   # UI State Tests
   # ===================
 
   test "request list shows correct status badges" do
     create(:request, :intake_in_progress, project: @project, original_input: "Feature A")
-    create(:request, :planning_review, project: @project, original_input: "Feature B")
+    create(:request, :plan_ready, project: @project, original_input: "Feature B")
     create(:request, :completed, project: @project, original_input: "Feature C")
 
     visit requests_path
 
-    assert_text "Intake In Progress"
-    assert_text "Planning Review"
+    assert_text "Planning In Progress"
+    assert_text "Plan Ready"
     assert_text "Completed"
   end
 
   test "design input flag is displayed" do
-    request = create(:request, :planning_review, :with_design_input, project: @project)
+    request = create(:request, :plan_ready, :with_design_input, project: @project)
 
     visit request_path(request)
 
@@ -222,19 +159,12 @@ class RequestWorkflowTest < ApplicationSystemTestCase
   end
 
   test "phase stepper shows correct progress" do
-    # Intake phase
-    request = create(:request, :intake_review, project: @project)
-    visit request_path(request)
-    assert_text "Intake"
-
     # Planning phase
-    request.approve_intake!
-    request.start_planning!
+    request = create(:request, :plan_ready, project: @project)
     visit request_path(request)
     assert_text "Planning"
 
     # Execution phase
-    request.complete_planning!
     request.approve_plan!
     request.start_execution!
     visit request_path(request)

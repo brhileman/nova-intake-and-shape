@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class RequestsController < ApplicationController
-  before_action :set_request, only: [ :show, :poll, :approve, :comment, :team_comment ]
+  before_action :set_request, only: [ :show, :poll, :approve, :comment, :team_comment, :update_group, :update_priority, :update_dependencies ]
   before_action :require_project, only: [ :index, :new, :create ]
 
   # GET /requests
@@ -47,12 +47,12 @@ class RequestsController < ApplicationController
     @request.created_by = current_user
 
     if @request.save
-      # Auto-launch intake agent (same as CLI)
+      # Auto-launch intake agent
       @request.start_intake!
       agent = Agents::IntakeAgent.new(@request)
       agent.launch
 
-      redirect_to @request, notice: "Request created. Intake agent launched."
+      redirect_to @request, notice: "Request created. Planning agent launched."
     else
       render :new, status: :unprocessable_entity
     end
@@ -75,29 +75,15 @@ class RequestsController < ApplicationController
     @request.record_approval(current_user)
 
     case @request.status
-    when "intake_clarified"
+    when "plan_ready"
       if @request.all_approvals_present?
-        # Brief is already saved when transitioning to intake_clarified
-        @request.approve_intake!
-        @request.start_planning!
-        # Use followup() to continue with the same agent instead of launching a new one
-        agent = Agents::PlanningAgent.new(@request)
-        agent.followup(agent.build_planning_transition_prompt)
-        notice_message = "Brief approved. Planning phase started."
-      else
-        notice_message = "Your approval has been recorded. Waiting for additional approvals."
-      end
-
-    when "planning_clarified"
-      if @request.all_approvals_present?
-        # Plan is already saved when transitioning to planning_clarified
         @request.approve_plan!
         @request.start_execution!
         # Use followup() to continue with the same agent instead of launching a new one
         agent = Agents::ExecutionAgent.new(@request)
         # Include design guidance images if provided
         agent.followup(agent.build_execution_transition_prompt, images: agent.design_images)
-        notice_message = "Plan approved by all required roles. Execution phase started."
+        notice_message = "Plan approved. Execution phase started."
       else
         status = @request.plan_approval_status
         pending_roles = []
@@ -157,26 +143,39 @@ class RequestsController < ApplicationController
     # Send to agent
     agent_class = case @request.current_phase
     when "intake" then Agents::IntakeAgent
-    when "planning" then Agents::PlanningAgent
     when "execution" then Agents::ExecutionAgent
     end
 
     if agent_class && @request.current_agent_id
-      agent = agent_class.new(@request)
-      agent.followup(message)
-
-      # Transition back to in_progress so polling resumes
-      # (agent is now working on the follow-up)
+      # Transition back to in_progress FIRST so polling resumes immediately,
+      # even if the followup call is slow or fails
       case @request.status
-      when "intake_needs_clarification", "intake_clarified"
-        @request.revise_intake!
-      when "planning_needs_clarification", "planning_clarified"
+      when "intake_needs_clarification"
+        @request.resume_intake!
+      when "plan_ready"
         @request.revise_plan!
       when "execution_review"
         @request.revise_execution!
       end
+
+      # Send to agent (non-blocking from status perspective)
+      begin
+        agent = agent_class.new(@request)
+        agent.followup(message)
+
+        # The followup call is synchronous -- by the time it returns, the agent
+        # may have already responded and finished. Check immediately instead of
+        # waiting for the next poll cycle.
+        if @request.status.end_with?("_in_progress")
+          client = CursorApi::Client.new
+          check_and_transition_agent_status_with_client(client)
+        end
+      rescue StandardError => e
+        Rails.logger.error "[Nova Flow] Failed to send followup to agent: #{e.message}"
+      end
     end
 
+    @request.reload
     @conversation = fetch_conversation
 
     respond_to do |format|
@@ -184,6 +183,9 @@ class RequestsController < ApplicationController
         render turbo_stream: [
           turbo_stream.update("chat_thread_#{@request.id}", partial: "chat_thread", locals: { request: @request, conversation: @conversation }),
           turbo_stream.update("agent_status_#{@request.id}", partial: "agent_status", locals: { request: @request }),
+          turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
+          turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
+          turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
           turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end
@@ -223,11 +225,105 @@ class RequestsController < ApplicationController
     end
   end
 
+  # PATCH /requests/:id/update_group
+  # Update the request's group assignment
+  def update_group
+    group_id = params[:request_group_id]
+
+    if group_id.present?
+      group = @request.project.request_groups.find_by(id: group_id)
+      @request.update(request_group: group)
+    else
+      @request.update(request_group: nil)
+    end
+
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: turbo_stream.replace(
+          "request_row_#{@request.id}",
+          partial: "requests/request_row",
+          locals: { request: @request }
+        )
+      end
+      format.html { redirect_to @request }
+      format.json { render json: @request }
+    end
+  end
+
+  # PATCH /requests/:id/update_priority
+  # Update the request's priority
+  def update_priority
+    priority = params[:priority]
+
+    if priority.present? && Request.priorities.key?(priority)
+      @request.update(priority: priority)
+    else
+      @request.update(priority: nil)
+    end
+
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: turbo_stream.replace(
+          "request_priority_#{@request.id}",
+          partial: "requests/priority_selector",
+          locals: { request: @request }
+        )
+      end
+      format.html { redirect_to @request }
+      format.json { render json: @request }
+    end
+  end
+
+  # PATCH /requests/:id/update_dependencies
+  # Update the request's dependencies
+  def update_dependencies
+    @request.update(dependencies: params[:dependencies])
+
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: turbo_stream.replace(
+          "request_dependencies_#{@request.id}",
+          partial: "requests/dependencies_input",
+          locals: { request: @request }
+        )
+      end
+      format.html { redirect_to @request }
+      format.json { render json: @request }
+    end
+  end
+
+  # PATCH /requests/reorder
+  # Bulk update positions for drag-and-drop reordering
+  def reorder
+    request_ids = params[:request_ids] || []
+
+    Request.transaction do
+      request_ids.each_with_index do |id, index|
+        Request.where(id: id, project: current_project).update_all(position: index + 1)
+      end
+    end
+
+    respond_to do |format|
+      format.turbo_stream { head :ok }
+      format.html { redirect_to current_project }
+      format.json { render json: { success: true } }
+    end
+  rescue StandardError => e
+    respond_to do |format|
+      format.turbo_stream { head :unprocessable_entity }
+      format.html { redirect_to current_project, alert: "Failed to reorder requests." }
+      format.json { render json: { error: e.message }, status: :unprocessable_entity }
+    end
+  end
+
   # GET /requests/:id/poll
   # Polls for updates: checks agent status, auto-transitions when complete, returns updated UI
   def poll
     # Check if agent has finished and auto-transition
-    if @request.current_agent_id && @request.status.end_with?("_in_progress")
+    if @request.current_agent_id && (
+      @request.status.end_with?("_in_progress") ||
+      @request.status == "intake_needs_clarification"
+    )
       check_and_transition_agent_status
     end
 
@@ -277,7 +373,6 @@ class RequestsController < ApplicationController
         "You have already approved this #{phase}."
       else
         required_role = case phase
-        when "brief" then "PM"
         when "plan" then "PM or Dev"
         when "execution" then "Dev"
         end
@@ -303,65 +398,53 @@ class RequestsController < ApplicationController
 
     begin
       client = CursorApi::Client.new
-      agent = client.get_agent(@request.current_agent_id)
-
-      # Agent statuses from Cursor API: "RUNNING", "FINISHED", "ERROR", etc. (uppercase)
-      if agent["status"]&.upcase == "FINISHED"
-        case @request.status
-        when "intake_in_progress", "intake_needs_clarification"
-          handle_intake_agent_finished(client)
-        when "planning_in_progress", "planning_needs_clarification"
-          handle_planning_agent_finished(client)
-        when "execution_in_progress"
-          @request.complete_execution!
-          # Save execution details (including PR URL) immediately so it shows in execution_review
-          save_execution_from_agent
-        end
-        @request.reload
-      end
+      check_and_transition_agent_status_with_client(client)
     rescue CursorApi::Client::Error
       # Silent fail - will try again on next poll
     end
   end
 
-  def handle_intake_agent_finished(client)
-    conv = client.get_conversation(@request.current_agent_id)
-    last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
-    return unless last_agent_msg
+  def check_and_transition_agent_status_with_client(client)
+    agent = client.get_agent(@request.current_agent_id)
+    agent_status = agent["status"]&.upcase
 
-    content = last_agent_msg["text"]
-    detected_status = BriefExtractor.detect_status(content)
-
-    case detected_status
-    when :needs_clarification
-      @request.request_clarification! if @request.may_request_clarification?
-    when :clarified
-      # Extract and save the brief immediately
-      brief_content = BriefExtractor.extract_brief_section(content) || content
-      @request.briefs.create!(content: brief_content)
-
-      # Extract structured data
-      extracted = BriefExtractor.new(brief_content).extract
-      @request.update!(extracted)
-
-      # Transition to clarified state
-      @request.clarify_intake! if @request.may_clarify_intake?
-    else
-      # Fallback: if no status marker, check if brief section exists
-      if BriefExtractor.extract_brief_section(content).present?
-        brief_content = BriefExtractor.extract_brief_section(content)
-        @request.briefs.create!(content: brief_content)
-        extracted = BriefExtractor.new(brief_content).extract
-        @request.update!(extracted)
-        @request.clarify_intake! if @request.may_clarify_intake?
-      else
-        # No brief section found, treat as needs clarification
-        @request.request_clarification! if @request.may_request_clarification?
+    case @request.status
+    when "intake_in_progress", "intake_needs_clarification"
+      if agent_status == "FINISHED"
+        handle_intake_agent_finished(client)
+      elsif check_for_new_agent_response?(client)
+        handle_intake_agent_finished(client)
+      end
+    when "execution_in_progress"
+      if agent_status == "FINISHED"
+        @request.complete_execution!
+        save_execution_from_agent
       end
     end
+    @request.reload
   end
 
-  def handle_planning_agent_finished(client)
+  # Check if the agent has sent a new response since we last checked.
+  # Returns true if the latest assistant message looks like it contains
+  # a status marker (needs_clarification or clarified), indicating
+  # the agent has finished its turn and is waiting for user input.
+  def check_for_new_agent_response?(client)
+    conv = client.get_conversation(@request.current_agent_id)
+    messages = conv["messages"] || []
+
+    # Find the latest assistant message
+    last_agent_msg = messages.reverse.find { |m| m["type"] == "assistant_message" }
+    return false unless last_agent_msg
+
+    content = last_agent_msg["text"] || ""
+
+    # If the message contains a STATUS marker, the agent has completed its turn
+    PlanExtractor.detect_status(content) != :unknown
+  rescue CursorApi::Client::Error
+    false
+  end
+
+  def handle_intake_agent_finished(client)
     conv = client.get_conversation(@request.current_agent_id)
     last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
     return unless last_agent_msg
@@ -373,24 +456,11 @@ class RequestsController < ApplicationController
     when :needs_clarification
       @request.request_clarification! if @request.may_request_clarification?
     when :clarified
-      # Extract and save the plan immediately
-      plan_content = PlanExtractor.extract_plan_section(content) || content
-      @request.plans.create!(content: plan_content)
-
-      # Extract structured data
-      extracted = PlanExtractor.new(plan_content).extract
-      @request.update!(extracted)
-
-      # Transition to clarified state
-      @request.clarify_planning! if @request.may_clarify_planning?
+      save_plan_from_content(content)
     else
       # Fallback: if no status marker, check if plan section exists
       if PlanExtractor.extract_plan_section(content).present?
-        plan_content = PlanExtractor.extract_plan_section(content)
-        @request.plans.create!(content: plan_content)
-        extracted = PlanExtractor.new(plan_content).extract
-        @request.update!(extracted)
-        @request.clarify_planning! if @request.may_clarify_planning?
+        save_plan_from_content(content)
       else
         # No plan section found, treat as needs clarification
         @request.request_clarification! if @request.may_request_clarification?
@@ -398,46 +468,22 @@ class RequestsController < ApplicationController
     end
   end
 
-  def save_brief_from_conversation
-    return unless @request.current_agent_id
+  # Extract plan content from agent response, save it, and transition to plan_ready
+  def save_plan_from_content(content)
+    plan_content = PlanExtractor.extract_plan_section(content) || content
 
-    begin
-      client = CursorApi::Client.new
-      conv = client.get_conversation(@request.current_agent_id)
-      last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
+    # Avoid creating duplicate plans with the same content
+    existing = @request.latest_plan
+    unless existing && existing.content == plan_content
+      @request.plans.create!(content: plan_content)
 
-      if last_agent_msg
-        content = last_agent_msg["text"]
-        @request.briefs.create!(content: content)
-
-        # Extract structured data from the brief
-        extracted = BriefExtractor.new(content).extract
-        @request.update!(extracted)
-      end
-    rescue CursorApi::Client::Error
-      # Silent fail - brief won't be saved
+      # Extract structured data
+      extracted = PlanExtractor.new(plan_content).extract
+      @request.update!(extracted)
     end
-  end
 
-  def save_plan_from_conversation
-    return unless @request.current_agent_id
-
-    begin
-      client = CursorApi::Client.new
-      conv = client.get_conversation(@request.current_agent_id)
-      last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
-
-      if last_agent_msg
-        content = last_agent_msg["text"]
-        @request.plans.create!(content: content)
-
-        # Extract structured data from the plan
-        extracted = PlanExtractor.new(content).extract
-        @request.update!(extracted)
-      end
-    rescue CursorApi::Client::Error
-      # Silent fail - plan won't be saved
-    end
+    # Transition to plan_ready state
+    @request.clarify_intake! if @request.may_clarify_intake?
   end
 
   def save_execution_from_agent

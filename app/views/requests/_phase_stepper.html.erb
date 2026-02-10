@@ -2,8 +2,7 @@
 <% req = local_assigns[:request] || @request %>
 <%
   phases = [
-    { name: "Intake", states: %w[intake_pending intake_in_progress intake_needs_clarification intake_clarified] },
-    { name: "Planning", states: %w[planning_pending planning_in_progress planning_needs_clarification planning_clarified] },
+    { name: "Planning", states: %w[intake_pending intake_in_progress intake_needs_clarification plan_ready] },
     { name: "Execution", states: %w[execution_pending execution_in_progress execution_review completed] }
   ]
   

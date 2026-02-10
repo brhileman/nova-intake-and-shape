@@ -73,7 +73,7 @@ export default class extends Controller {
   }
 
   shouldPoll() {
-    // Only poll for *_in_progress states
+    // Only poll for *_in_progress states (agent is actively working)
     const status = this.getStatus()
     return status && status.endsWith("_in_progress")
   }
@@ -82,6 +82,9 @@ export default class extends Controller {
     if (!this.urlValue) return
 
     try {
+      // Capture focus state before Turbo replaces DOM elements
+      const focusState = this.captureFocusState()
+
       const response = await fetch(this.urlValue, {
         headers: {
           "Accept": "text/vnd.turbo-stream.html",
@@ -92,9 +95,72 @@ export default class extends Controller {
       if (response.ok) {
         const html = await response.text()
         Turbo.renderStreamMessage(html)
+
+        // Restore focus after DOM update so typing isn't interrupted
+        if (focusState) {
+          requestAnimationFrame(() => this.restoreFocusState(focusState))
+        }
       }
     } catch (error) {
       console.error(`[Request ${this.requestIdValue}] Polling error:`, error)
+    }
+  }
+
+  // Save the active element's identity, value, and cursor position
+  captureFocusState() {
+    const el = document.activeElement
+    if (!el || el === document.body || (el.tagName !== "INPUT" && el.tagName !== "TEXTAREA")) {
+      return null
+    }
+
+    return {
+      selector: this.buildElementSelector(el),
+      value: el.value,
+      selectionStart: el.selectionStart,
+      selectionEnd: el.selectionEnd
+    }
+  }
+
+  // Build a selector that can find the equivalent element after DOM replacement.
+  // Prefers Stimulus data-*-target attributes since they uniquely identify inputs.
+  buildElementSelector(el) {
+    if (el.id) return `#${el.id}`
+
+    // Use Stimulus target data attributes (e.g. data-chat-target="input")
+    for (const attr of el.attributes) {
+      if (attr.name.match(/^data-.*-target$/)) {
+        return `${el.tagName.toLowerCase()}[${attr.name}="${attr.value}"]`
+      }
+    }
+
+    // Fallback: scope by form action + field name
+    if (el.name) {
+      const form = el.closest("form")
+      const action = form?.getAttribute("action")
+      if (action) {
+        return `form[action="${action}"] ${el.tagName.toLowerCase()}[name="${el.name}"]`
+      }
+    }
+
+    return null
+  }
+
+  // Find the equivalent element after DOM update and restore focus + value
+  restoreFocusState(state) {
+    if (!state.selector) return
+
+    const el = document.querySelector(state.selector)
+    if (!el) return
+
+    // Restore typed text that was lost when the DOM was replaced
+    el.value = state.value
+    el.focus()
+
+    // Restore cursor / selection position
+    try {
+      el.setSelectionRange(state.selectionStart, state.selectionEnd)
+    } catch (_) {
+      // Some input types don't support setSelectionRange
     }
   }
 }

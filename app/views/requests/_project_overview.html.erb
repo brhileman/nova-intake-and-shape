@@ -14,11 +14,11 @@
     </div>
   </details>
 
-  <%# Bug Summary - for fix requests %>
-  <% if req.request_type == "fix" && req.bug_summary.present? %>
+  <%# Summary - for fix and chore requests %>
+  <% if %w[fix chore].include?(req.request_type) && req.summary.present? %>
     <div class="mt-4 pt-4 border-t border-slate-700">
-      <h3 class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Bug Summary</h3>
-      <p class="text-sm text-slate-300"><%= req.bug_summary %></p>
+      <h3 class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Summary</h3>
+      <p class="text-sm text-slate-300"><%= req.summary %></p>
     </div>
   <% end %>
 </div>

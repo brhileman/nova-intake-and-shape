@@ -15,6 +15,22 @@ Rails.application.routes.draw do
       get :context      # Show context editor
       post :context     # Save context
     end
+
+    # Request groups for organizing requests
+    resources :request_groups, only: [:create, :destroy]
+
+    # Decomposition plans for breaking down initiatives into requests
+    resources :decomposition_plans, only: [:new, :create, :show] do
+      collection do
+        get :new_plan  # Shows the actual new plan form
+      end
+      member do
+        post :followup
+        get :poll
+        post :approve
+        post :cancel
+      end
+    end
   end
 
   # User switching (for role-based testing)
@@ -25,11 +41,18 @@ Rails.application.routes.draw do
   end
 
   resources :requests, only: [ :index, :show, :new, :create ] do
+    collection do
+      patch :reorder    # Bulk update positions for drag-and-drop
+    end
+
     member do
       get :poll         # Polling endpoint - checks agent status, auto-transitions, returns Turbo Stream
       post :comment     # Send message to agent (calls agent.followup)
       post :approve     # Approve current phase, triggers state transition + launches next agent
       post :team_comment # Add team comment (internal discussion, outside agent context)
+      patch :update_group # Update request's group assignment
+      patch :update_priority # Update request's priority
+      patch :update_dependencies # Update request's dependencies
     end
 
     # Nested singular resource for design guidance (one per request)

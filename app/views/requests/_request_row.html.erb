@@ -1,13 +1,14 @@
 <%# Table row for request - Asana-inspired design (dark mode) %>
 <%# Optional: pass show_project: true to display project column (for cross-project views) %>
+<%# Optional: pass show_drag_handle: true to display drag handle for reordering %>
 <%
   show_project_column = local_assigns[:show_project] || false
-  needs_action = request.status.end_with?("_review", "_clarified", "_needs_clarification")
+  show_drag_handle = local_assigns[:show_drag_handle] || false
+  needs_action = %w[plan_ready execution_review intake_needs_clarification].include?(request.status)
   
   # Determine stage from status
   stage = case request.current_phase
-  when "intake" then "Intake"
-  when "planning" then "Plan"
+  when "intake" then "Planning"
   when "execution" then "Executing"
   else "Complete"
   end
@@ -15,7 +16,6 @@
   # Stage colors - dark mode
   stage_color = case request.current_phase
   when "intake" then "bg-purple-900/50 text-purple-300"
-  when "planning" then "bg-blue-900/50 text-blue-300"
   when "execution" then "bg-amber-900/50 text-amber-300"
   else "bg-emerald-900/50 text-emerald-300"
   end
@@ -25,6 +25,7 @@
   when "new_feature" then "bg-emerald-900/50 text-emerald-300"
   when "update" then "bg-blue-900/50 text-blue-300"
   when "fix" then "bg-red-900/50 text-red-300"
+  when "chore" then "bg-slate-600 text-slate-300"
   else "bg-slate-700 text-slate-300"
   end
   
@@ -32,6 +33,7 @@
   when "new_feature" then "New Feature"
   when "update" then "Update"
   when "fix" then "Bug Fix"
+  when "chore" then "Chore"
   else nil
   end
   
@@ -40,36 +42,61 @@
 %>
 
 <%= turbo_frame_tag dom_id(request) do %>
-  <tr class="group hover:bg-slate-700/50 transition-colors <%= 'bg-[#00b4d8]/10' if needs_action %>">
+  <tr id="request_row_<%= request.id %>"
+      data-request-id="<%= request.id %>"
+      class="group hover:bg-slate-700/50 transition-colors <%= 'bg-[#00b4d8]/10' if needs_action %>">
     <%# Request title column %>
     <td class="py-3 pl-4 pr-3">
-      <%= link_to request_path(request), data: { turbo_frame: "_top" }, class: "block" do %>
-        <div class="flex items-center gap-3">
-          <%# Status indicator dot %>
-          <div class="flex-shrink-0">
-            <% if needs_action %>
-              <span class="relative flex h-2.5 w-2.5">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00b4d8] opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00b4d8]"></span>
-              </span>
-            <% elsif request.status == "completed" %>
-              <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-            <% else %>
-              <span class="flex h-2.5 w-2.5 rounded-full bg-slate-500"></span>
-            <% end %>
+      <div class="flex items-center gap-2">
+        <% if show_drag_handle %>
+          <div class="drag-handle cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 transition-colors opacity-0 group-hover:opacity-100">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
+            </svg>
           </div>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-medium text-slate-100 truncate group-hover:text-[#00b4d8] transition-colors">
-              <% if request.request_number %>
-                <span class="text-slate-400 font-normal">REQ-<%= request.request_number %>:</span>
+        <% end %>
+        <%= link_to request_path(request), data: { turbo_frame: "_top" }, class: "block flex-1" do %>
+          <div class="flex items-center gap-3">
+            <%# Status indicator dot %>
+            <div class="flex-shrink-0">
+              <% if needs_action %>
+                <span class="relative flex h-2.5 w-2.5">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00b4d8] opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00b4d8]"></span>
+                </span>
+              <% elsif request.status == "completed" %>
+                <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              <% else %>
+                <span class="flex h-2.5 w-2.5 rounded-full bg-slate-500"></span>
               <% end %>
-              <%= request.display_title.truncate(50) %>
-            </p>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-slate-100 truncate group-hover:text-[#00b4d8] transition-colors">
+                <% if request.request_number %>
+                  <span class="text-slate-400 font-normal">REQ-<%= request.request_number %>:</span>
+                <% end %>
+                <%= request.display_title.truncate(50) %>
+              </p>
+            </div>
           </div>
-        </div>
-      <% end %>
+        <% end %>
+      </div>
     </td>
     
+    <%# Group column %>
+    <td class="px-3 py-3 whitespace-nowrap">
+      <% if request.request_group.present? %>
+        <span class="inline-flex items-center gap-1 rounded-md bg-purple-900/50 px-2 py-1 text-xs font-medium text-purple-300">
+          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <%= request.request_group.name.truncate(20) %>
+        </span>
+      <% else %>
+        <span class="text-slate-500 text-sm">—</span>
+      <% end %>
+    </td>
+
     <%# Project column (optional - shown in cross-project views) %>
     <% if show_project_column %>
       <td class="px-3 py-3 whitespace-nowrap">
@@ -127,12 +154,7 @@
         pending_users = []
         
         case request.status
-        when "intake_clarified"
-          # Brief needs PM approval
-          unless request.brief_approved?
-            pending_users << request.project.pm if request.project.pm
-          end
-        when "planning_clarified"
+        when "plan_ready"
           # Plan needs PM and Dev approval
           status = request.plan_approval_status
           pending_users << request.project.pm if request.project.pm && !status[:pm]
@@ -144,10 +166,10 @@
           end
         end
         
-        # Add designer if design input is needed and we're in a waiting state
+        # Add designer if design input is needed and we're in the planning phase
         if request.requires_design_input && 
            request.design_guidance.blank? && 
-           %w[intake_clarified planning_pending planning_in_progress].include?(request.status)
+           request.status == "plan_ready"
           pending_users << request.project.designer if request.project.designer
         end
         

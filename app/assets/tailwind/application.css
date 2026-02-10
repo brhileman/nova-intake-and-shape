@@ -76,3 +76,15 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Sortable drag-and-drop styles */
+.sortable-ghost {
+  opacity: 0.4;
+  background: rgba(0, 180, 216, 0.1);
+}
+
+.sortable-drag {
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}

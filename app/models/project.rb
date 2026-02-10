@@ -2,6 +2,8 @@
 
 class Project < ApplicationRecord
   has_many :requests, dependent: :destroy
+  has_many :request_groups, dependent: :destroy
+  has_many :decomposition_plans, dependent: :destroy
 
   # Project team assignments
   belongs_to :pm, class_name: "User", optional: true

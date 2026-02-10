@@ -115,7 +115,7 @@
         <%= form_with url: comment_request_path(req), 
                       method: :post, 
                       class: "flex items-center gap-3",
-                      data: { controller: "form", action: "turbo:submit-start->form#disable turbo:submit-end->form#enable" } do |f| %>
+                      data: { turbo_stream: true, controller: "form", action: "turbo:submit-start->form#disable turbo:submit-end->form#enable" } do |f| %>
           <div class="flex-1 relative">
             <%= f.text_area :message, 
                 placeholder: "Send message to agent...",

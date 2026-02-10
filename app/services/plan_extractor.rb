@@ -1,11 +1,19 @@
 # frozen_string_literal: true
 
-# Extracts structured data from planning agent responses
-# Uses regex patterns to parse the expected format from the agent
+# Extracts structured data from agent responses containing implementation plans.
+# Handles all request types: new/update (user story), fix (bug summary), chore (summary).
+# Uses regex patterns to parse the expected format from the agent.
 class PlanExtractor
   PATTERNS = {
     estimate: /\*\*Estimate.*?:\*\*\s*(\d+\.?\d*)/i,
-    design_needed: /\*\*DESIGN INPUT NEEDED\*\*:\s*(.+?)(?=\n)/i
+    design_needed: /\*\*DESIGN INPUT NEEDED\*\*:\s*(.+?)(?=\n)/i,
+    type: /\*\*Type:\*\*\s*(.+?)(?=\n)/i,
+    title: /\*\*(?:Recommended\s+)?Title:\*\*\s*(.+?)(?=\n)/i,
+    persona: /\*\*As a\*\*\s*(.+?)(?=\n|\*\*I want)/im,
+    action: /\*\*I want\*\*\s*(.+?)(?=\n|\*\*So that)/im,
+    outcome: /\*\*So that\*\*\s*(.+?)(?=\n\n|\n##|\z)/im,
+    bug_summary: /\*\*Bug Summary:\*\*\s*(.+?)(?=\n)/i,
+    summary: /\*\*Summary:\*\*\s*(.+?)(?=\n##|\z)/im
   }.freeze
 
   # Status markers that the agent outputs
@@ -42,7 +50,13 @@ class PlanExtractor
   def extract
     {
       estimate_days: extract_estimate,
-      requires_design_input: design_input_needed?
+      requires_design_input: design_input_needed?,
+      request_type: extract_request_type,
+      generated_title: extract_field(:title),
+      user_story_persona: extract_field(:persona),
+      user_story_action: extract_field(:action),
+      user_story_outcome: extract_field(:outcome),
+      summary: extract_summary
     }.compact
   end
 
@@ -57,5 +71,32 @@ class PlanExtractor
 
   def design_input_needed?
     @content.include?("DESIGN INPUT NEEDED")
+  end
+
+  def extract_field(key)
+    match = @content.match(PATTERNS[key])
+    match&.[](1)&.strip&.presence
+  end
+
+  def extract_request_type
+    match = @content.match(PATTERNS[:type])
+    return nil unless match
+
+    case match[1].downcase.strip
+    when "new" then "new_feature"
+    when "update" then "update"
+    when "fix" then "fix"
+    when "chore" then "chore"
+    end
+  end
+
+  # Extract summary -- used by fix (Bug Summary) and chore (Summary) requests
+  def extract_summary
+    # Priority 1: Bug Summary (for fix requests)
+    bug = extract_field(:bug_summary)
+    return bug if bug.present?
+
+    # Priority 2: Summary (for chore requests)
+    extract_field(:summary)
   end
 end

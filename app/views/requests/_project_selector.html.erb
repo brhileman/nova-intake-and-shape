@@ -19,8 +19,7 @@
   <%# Request Title & Phase Header %>
   <%
     phases = [
-      { name: "Intake", states: %w[intake_pending intake_in_progress intake_needs_clarification intake_clarified] },
-      { name: "Planning", states: %w[planning_pending planning_in_progress planning_needs_clarification planning_clarified] },
+      { name: "Planning", states: %w[intake_pending intake_in_progress intake_needs_clarification plan_ready] },
       { name: "Execution", states: %w[execution_pending execution_in_progress execution_review completed] }
     ]
     current_phase = phases.find { |p| p[:states].include?(req.status) }
@@ -45,10 +44,10 @@
       </div>
     </details>
     
-    <% if req.request_type == "fix" && req.bug_summary.present? %>
+    <% if %w[fix chore].include?(req.request_type) && req.summary.present? %>
       <div class="mt-2 pt-2 border-t border-slate-700">
-        <h4 class="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Bug Summary</h4>
-        <p class="text-xs text-slate-300"><%= truncate(req.bug_summary, length: 100) %></p>
+        <h4 class="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Summary</h4>
+        <p class="text-xs text-slate-300"><%= truncate(req.summary, length: 100) %></p>
       </div>
     <% end %>
   </div>
@@ -69,6 +68,21 @@
     <% end %>
 
     <div class="space-y-2.5">
+      <%# Group %>
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-slate-500">Group</span>
+        <% if req.request_group.present? %>
+          <span class="inline-flex items-center gap-1 text-xs text-purple-300">
+            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <%= req.request_group.name.truncate(15) %>
+          </span>
+        <% else %>
+          <span class="text-xs text-slate-500">None</span>
+        <% end %>
+      </div>
+
       <%# Type %>
       <div class="flex items-center justify-between">
         <span class="text-xs text-slate-500">Type</span>
@@ -80,6 +94,12 @@
           <span class="text-xs text-slate-500">Pending</span>
         <% end %>
       </div>
+
+      <%# Priority (editable dropdown) %>
+      <%= render "requests/priority_selector", request: req %>
+
+      <%# Dependencies (editable) %>
+      <%= render "requests/dependencies_input", request: req %>
 
       <%# Estimate %>
       <% if req.estimate_days.present? %>

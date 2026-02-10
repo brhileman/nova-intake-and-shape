@@ -48,12 +48,12 @@ end
 
 ## State Machine (AASM)
 
-Request states follow pattern: `{phase}_{status}` (e.g., `intake_in_progress`, `planning_clarified`)
+Request states: `intake_pending`, `intake_in_progress`, `intake_needs_clarification`, `plan_ready`, `execution_pending`, `execution_in_progress`, `execution_review`, `completed`
 
 Valid transitions are defined in `Request` model. Always use AASM events:
 ```ruby
-request.start_intake!      # Not: request.update!(status: 'intake_in_progress')
-request.clarify_planning!  # Events handle validations
+request.start_intake!    # Not: request.update!(status: 'intake_in_progress')
+request.clarify_intake!  # Events handle validations
 ```
 
 ## Feature Development

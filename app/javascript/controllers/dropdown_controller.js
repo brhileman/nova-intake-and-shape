@@ -1,17 +1,16 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Simple dropdown toggle controller
+// Simple dropdown controller for toggling menus
 export default class extends Controller {
-  static targets = ["menu", "button"]
+  static targets = ["menu"]
 
   connect() {
-    // Close dropdown when clicking outside
-    this.clickOutsideHandler = this.clickOutside.bind(this)
-    document.addEventListener("click", this.clickOutsideHandler)
+    this.boundClose = this.closeOnClickOutside.bind(this)
+    document.addEventListener("click", this.boundClose)
   }
 
   disconnect() {
-    document.removeEventListener("click", this.clickOutsideHandler)
+    document.removeEventListener("click", this.boundClose)
   }
 
   toggle(event) {
@@ -19,7 +18,7 @@ export default class extends Controller {
     this.menuTarget.classList.toggle("hidden")
   }
 
-  clickOutside(event) {
+  closeOnClickOutside(event) {
     if (!this.element.contains(event.target)) {
       this.menuTarget.classList.add("hidden")
     }

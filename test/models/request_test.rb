@@ -33,42 +33,38 @@ class RequestTest < ActiveSupport::TestCase
     assert_equal "intake_in_progress", request.status
   end
 
-  test "complete_intake transitions from intake_in_progress to intake_review" do
+  test "request_clarification transitions from intake_in_progress to intake_needs_clarification" do
     request = create(:request, :intake_in_progress)
-    request.complete_intake!
-    assert_equal "intake_review", request.status
+    request.request_clarification!
+    assert_equal "intake_needs_clarification", request.status
   end
 
-  test "approve_intake transitions from intake_review to planning_pending" do
-    request = create(:request, :intake_review)
-    request.approve_intake!
-    assert_equal "planning_pending", request.status
+  test "clarify_intake transitions from intake_in_progress to plan_ready" do
+    request = create(:request, :intake_in_progress)
+    request.clarify_intake!
+    assert_equal "plan_ready", request.status
+  end
+
+  test "clarify_intake transitions from intake_needs_clarification to plan_ready" do
+    request = create(:request, :intake_needs_clarification)
+    request.clarify_intake!
+    assert_equal "plan_ready", request.status
   end
 
   test "full workflow state transitions" do
     request = create(:request)
 
-    # Intake
+    # Intake -> Plan Ready
     request.start_intake!
     assert_equal "intake_in_progress", request.status
 
-    request.complete_intake!
-    assert_equal "intake_review", request.status
+    request.clarify_intake!
+    assert_equal "plan_ready", request.status
 
-    request.approve_intake!
-    assert_equal "planning_pending", request.status
-
-    # Planning
-    request.start_planning!
-    assert_equal "planning_in_progress", request.status
-
-    request.complete_planning!
-    assert_equal "planning_review", request.status
-
+    # Plan Approved -> Execution
     request.approve_plan!
     assert_equal "execution_pending", request.status
 
-    # Execution
     request.start_execution!
     assert_equal "execution_in_progress", request.status
 
@@ -77,6 +73,12 @@ class RequestTest < ActiveSupport::TestCase
 
     request.approve_execution!
     assert_equal "completed", request.status
+  end
+
+  test "revise_plan sends back to intake_in_progress" do
+    request = create(:request, :plan_ready)
+    request.revise_plan!
+    assert_equal "intake_in_progress", request.status
   end
 
   # ===================
@@ -88,22 +90,14 @@ class RequestTest < ActiveSupport::TestCase
     assert_equal "intake", request.current_phase
   end
 
-  test "current_phase returns planning for planning states" do
-    request = create(:request, :planning_in_progress)
-    assert_equal "planning", request.current_phase
+  test "current_phase returns intake for plan_ready" do
+    request = create(:request, :plan_ready)
+    assert_equal "intake", request.current_phase
   end
 
   test "current_phase returns execution for execution states" do
     request = create(:request, :execution_in_progress)
     assert_equal "execution", request.current_phase
-  end
-
-  test "latest_brief returns most recent brief" do
-    request = create(:request)
-    create(:brief, request: request, version: 1, content: "First")
-    create(:brief, request: request, version: 2, content: "Second")
-
-    assert_equal "Second", request.latest_brief.content
   end
 
   test "latest_plan returns most recent plan" do
@@ -129,18 +123,14 @@ class RequestTest < ActiveSupport::TestCase
 
     request.request_type_fix!
     assert request.request_type_fix?
+
+    request.request_type_chore!
+    assert request.request_type_chore?
   end
 
   # ===================
   # Association Tests
   # ===================
-
-  test "has_many briefs" do
-    request = create(:request)
-    create_list(:brief, 2, request: request)
-
-    assert_equal 2, request.briefs.count
-  end
 
   test "has_many plans" do
     request = create(:request)
@@ -166,7 +156,7 @@ class RequestTest < ActiveSupport::TestCase
   test "destroying request destroys associated records" do
     request = create(:request, :completed)
 
-    assert_difference [ "Brief.count", "Plan.count", "Execution.count" ], -1 do
+    assert_difference [ "Plan.count", "Execution.count" ], -1 do
       request.destroy
     end
   end

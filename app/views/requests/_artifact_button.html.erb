@@ -1,9 +1,9 @@
 <%# 
   Artifact button with status indicator that opens a modal
-  Locals: artifact_type ("brief" or "plan"), status (:not_started, :drafted, :approved), artifact (Brief/Plan or nil), request
+  Locals: artifact_type ("plan"), status (:not_started, :drafted, :approved), artifact (Plan or nil), request
 %>
 <%
-  artifact_type = local_assigns[:artifact_type] || "brief"
+  artifact_type = local_assigns[:artifact_type] || "plan"
   status = local_assigns[:status] || :not_started
   artifact = local_assigns[:artifact]
   req = local_assigns[:request] || @request
@@ -42,21 +42,12 @@
     }
   end
 
-  # Artifact type config
-  type_config = case artifact_type
-  when "brief"
-    {
-      title: "Brief",
-      subtitle: "Request summary from intake",
-      icon_path: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-    }
-  when "plan"
-    {
-      title: "Plan",
-      subtitle: "Implementation plan",
-      icon_path: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-    }
-  end
+  # Artifact type config - only plan now
+  type_config = {
+    title: "Plan",
+    subtitle: "Implementation plan",
+    icon_path: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+  }
 
   modal_id = "#{artifact_type}_modal_#{req.id}"
   is_clickable = artifact.present?
@@ -64,21 +55,11 @@
   # Determine pending approvals for the button indicator
   pending_approvals = []
   if status == :drafted
-    required_roles = case artifact_type
-      when "brief" then [["PM", :pm]]
-      when "plan" then [["PM", :pm], ["Dev", :dev]]
-      end
+    required_roles = [["PM", :pm], ["Dev", :dev]]
+    approval_status = req.plan_approval_status
     
-    approval_status = case artifact_type
-      when "brief" then req.brief_approval_status
-      when "plan" then req.plan_approval_status
-      end
-    
-    # Only show pending approvals when in the appropriate review state
-    show_pending = (artifact_type == "brief" && req.status == "intake_clarified") ||
-                   (artifact_type == "plan" && req.status == "planning_clarified")
-    
-    if show_pending && required_roles && approval_status
+    # Only show pending approvals when in plan_ready state
+    if req.status == "plan_ready"
       required_roles.each do |role_label, role_key|
         pending_approvals << role_label unless approval_status[role_key]
       end
@@ -159,7 +140,7 @@
                   <span class="h-1.5 w-1.5 rounded-full <%= status_config[:dot_color] %>"></span>
                   <%= status_config[:label] %>
                 </span>
-                <% if artifact_type == "plan" && req.requires_design_input? %>
+                <% if req.requires_design_input? %>
                   <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-900/50 text-amber-400">
                     Design Input Needed
                   </span>
@@ -178,7 +159,7 @@
 
         <%# Modal Body %>
         <div class="flex-1 overflow-y-auto p-6 bg-slate-800">
-          <% if artifact_type == "plan" && req.requires_design_input? %>
+          <% if req.requires_design_input? %>
             <div class="mb-4 rounded-lg bg-amber-900/30 border border-amber-700/50 p-4">
               <div class="flex">
                 <div class="flex-shrink-0">
@@ -200,45 +181,26 @@
 
         <%# Modal Footer %>
         <div class="px-6 py-4 border-t border-slate-700 rounded-b-xl">
-          <%# Approval UI - shown when artifact is drafted and awaiting approval %>
-          <% 
-            show_approval = status == :drafted && (
-              (artifact_type == "brief" && req.status == "intake_clarified") ||
-              (artifact_type == "plan" && req.status == "planning_clarified")
-            )
-          %>
+          <%# Approval UI - shown when plan is drafted and awaiting approval %>
+          <% show_approval = status == :drafted && req.status == "plan_ready" %>
           <% if show_approval %>
             <%
-              required_roles = case artifact_type
-                when "brief" then [["PM", :pm]]
-                when "plan" then [["PM", :pm], ["Dev", :dev]]
-                end
-              
-              approval_status = case artifact_type
-                when "brief" then req.brief_approval_status
-                when "plan" then req.plan_approval_status
-                end
-              
+              required_roles = [["PM", :pm], ["Dev", :dev]]
+              approval_status = req.plan_approval_status
               can_approve = req.can_user_approve?(current_user)
               
               # Determine if this approval will be the final one that triggers the agent
-              # Count existing approvals vs required
               existing_approvals = approval_status.values.compact.count
               required_count = required_roles.count
               is_final_approval = can_approve && (existing_approvals == required_count - 1)
               
-              # Set CTA text based on whether this is the final approval
-              cta_text, cta_helper = case artifact_type
-                when "brief"
-                  # Brief only needs PM, so it's always the final approval
-                  ["Approve, start agent planning", "Approving will start the planning phase"]
-                when "plan"
-                  if is_final_approval
-                    ["Approve, start agent execution", "This approval will start the execution phase"]
-                  else
-                    ["Approve Plan", "Requires both PM and Dev approval"]
-                  end
-                end
+              if is_final_approval
+                cta_text = "Approve, start agent execution"
+                cta_helper = "This approval will start the execution phase"
+              else
+                cta_text = "Approve Plan"
+                cta_helper = "Requires both PM and Dev approval"
+              end
             %>
             
             <div class="space-y-3">

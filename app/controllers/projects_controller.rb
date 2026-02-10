@@ -5,19 +5,20 @@ class ProjectsController < ApplicationController
 
   def show
     @requests = @project.requests
+    @current_filter = params[:filter] || "all"
 
     # Apply filters based on params (same logic as RequestsController)
-    case params[:filter]
+    case @current_filter
     when "needs_my_action"
-      @requests = @requests.needs_action_from(current_user)
+      @requests = @requests.needs_action_from(current_user).order(created_at: :desc)
     when "in_review"
-      @requests = @requests.in_review
+      @requests = @requests.in_review.order(created_at: :desc)
     when "created_by_me"
-      @requests = @requests.created_by_user(current_user)
+      @requests = @requests.created_by_user(current_user).order(created_at: :desc)
+    else
+      # "all" filter - use manual position ordering for drag-and-drop
+      @requests = @requests.ordered_by_position
     end
-
-    @requests = @requests.order(created_at: :desc)
-    @current_filter = params[:filter] || "all"
 
     # Set current project in session when viewing a project page
     session[:current_project_id] = @project.id

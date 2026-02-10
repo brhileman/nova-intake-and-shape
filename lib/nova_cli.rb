@@ -83,11 +83,11 @@ class NovaCli < Thor
     puts ""
 
     # Auto-launch intake agent
-    puts "Launching intake agent..."
+    puts "Launching planning agent..."
     request.start_intake!
     agent = Agents::IntakeAgent.new(request)
     response = agent.launch
-    puts "✓ Intake agent launched (#{response['id']})"
+    puts "✓ Planning agent launched (#{response['id']})"
     puts ""
     puts "Check status with: nova request_status #{request.id}"
   end
@@ -177,37 +177,7 @@ class NovaCli < Thor
     request = Request.find(request_id)
 
     case request.status
-    when "intake_in_progress"
-      # First complete intake, then approve
-      request.complete_intake!
-      puts "✓ Intake marked complete"
-      approve(request_id) # Recurse to handle approval
-
-    when "planning_in_progress"
-      # First complete planning, then approve
-      request.complete_planning!
-      puts "✓ Planning marked complete"
-      approve(request_id) # Recurse to handle approval
-
-    when "execution_in_progress"
-      # First complete execution, then approve
-      request.complete_execution!
-      puts "✓ Execution marked complete"
-      approve(request_id) # Recurse to handle approval
-
-    when "intake_review"
-      # Save the brief from conversation before advancing
-      save_brief_from_conversation(request)
-
-      request.approve_intake!
-      request.start_planning!
-      puts "✓ Intake approved. Launching planning agent..."
-
-      agent = Agents::PlanningAgent.new(request)
-      response = agent.launch
-      puts "✓ Planning agent launched (#{response['id']})"
-
-    when "planning_review"
+    when "plan_ready"
       # Save the plan from conversation before advancing
       save_plan_from_conversation(request)
 
@@ -216,8 +186,8 @@ class NovaCli < Thor
       puts "✓ Plan approved. Launching execution agent..."
 
       agent = Agents::ExecutionAgent.new(request)
-      response = agent.launch
-      puts "✓ Execution agent launched (#{response['id']})"
+      agent.followup(agent.build_execution_transition_prompt, images: agent.design_images)
+      puts "✓ Execution agent launched"
 
     when "execution_review"
       # Save execution details before completing
@@ -232,7 +202,7 @@ class NovaCli < Thor
 
     else
       puts "Cannot approve from status: #{request.status}"
-      puts "Request must be in a review state (_review suffix)"
+      puts "Request must be in plan_ready or execution_review state"
     end
   end
 
@@ -251,7 +221,6 @@ class NovaCli < Thor
     # Determine which agent class based on current phase
     agent_class = case request.current_phase
     when "intake" then Agents::IntakeAgent
-    when "planning" then Agents::PlanningAgent
     when "execution" then Agents::ExecutionAgent
     else
       puts "Cannot send comment in phase: #{request.current_phase}"
@@ -265,24 +234,6 @@ class NovaCli < Thor
   end
 
   private
-
-  def save_brief_from_conversation(request)
-    return unless request.current_agent_id
-
-    begin
-      client = CursorApi::Client.new
-      conv = client.get_conversation(request.current_agent_id)
-
-      # Get the last agent message as the brief
-      last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
-      if last_agent_msg
-        request.briefs.create!(content: last_agent_msg["text"])
-        puts "✓ Brief saved (version #{request.briefs.count})"
-      end
-    rescue CursorApi::Client::Error => e
-      puts "Warning: Could not save brief: #{e.message}"
-    end
-  end
 
   def save_plan_from_conversation(request)
     return unless request.current_agent_id

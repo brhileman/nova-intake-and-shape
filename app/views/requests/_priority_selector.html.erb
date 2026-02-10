@@ -1,0 +1,49 @@
+<%# Priority Selector Dropdown %>
+<% request = local_assigns[:request] %>
+<div id="request_priority_<%= request.id %>" class="flex items-center justify-between" data-controller="dropdown">
+  <span class="text-xs text-slate-500">Priority</span>
+  <div class="relative">
+    <button type="button"
+            data-action="click->dropdown#toggle"
+            class="inline-flex items-center gap-1 text-xs hover:bg-slate-700 rounded px-1.5 py-0.5 transition-colors">
+      <% if request.priority.present? %>
+        <%
+          priority_styles = {
+            "high" => "text-red-400",
+            "medium" => "text-amber-400",
+            "low" => "text-slate-400"
+          }
+          priority_class = priority_styles[request.priority] || "text-slate-300"
+        %>
+        <span class="<%= priority_class %> capitalize"><%= request.priority %></span>
+      <% else %>
+        <span class="text-slate-500">Set priority</span>
+      <% end %>
+      <svg class="h-3 w-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+
+    <div data-dropdown-target="menu"
+         class="hidden absolute right-0 mt-1 w-28 rounded-lg bg-slate-700 border border-slate-600 shadow-lg z-50 py-1">
+      <% [["high", "High", "text-red-400"], ["medium", "Medium", "text-amber-400"], ["low", "Low", "text-slate-400"]].each do |value, label, color| %>
+        <%= button_to update_priority_request_path(request, priority: value),
+            method: :patch,
+            data: { turbo_stream: true },
+            class: "w-full text-left px-3 py-1.5 text-xs #{color} hover:bg-slate-600 transition-colors #{request.priority == value ? 'bg-slate-600' : ''}" do %>
+          <%= label %>
+        <% end %>
+      <% end %>
+      <% if request.priority.present? %>
+        <div class="border-t border-slate-600 mt-1 pt-1">
+          <%= button_to update_priority_request_path(request, priority: ""),
+              method: :patch,
+              data: { turbo_stream: true },
+              class: "w-full text-left px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-600 transition-colors" do %>
+            Clear
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>

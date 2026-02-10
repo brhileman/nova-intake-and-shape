@@ -5,15 +5,18 @@ class Request < ApplicationRecord
 
   belongs_to :project
   belongs_to :created_by, class_name: "User", optional: true
-  has_many :briefs, dependent: :destroy
+  belongs_to :request_group, optional: true
   has_many :plans, dependent: :destroy
   has_one :execution, dependent: :destroy
   has_one :design_guidance, dependent: :destroy
   has_many :comments, dependent: :destroy
   has_many :approvals, dependent: :destroy
 
-  # Request type classification: new feature, update to existing, or bug fix
-  enum :request_type, { new_feature: 0, update: 1, fix: 2 }, prefix: true
+  # Request type classification
+  enum :request_type, { new_feature: 0, update: 1, fix: 2, chore: 3 }, prefix: true
+
+  # Priority level: high, medium, low
+  enum :priority, { high: 0, medium: 1, low: 2 }, prefix: true
 
   validates :original_input, presence: true
   validates :request_number, uniqueness: { scope: :project_id }, allow_nil: true
@@ -22,7 +25,10 @@ class Request < ApplicationRecord
   scope :created_by_user, ->(user) { where(created_by: user) }
   scope :by_status, ->(status) { where(status: status) }
   scope :by_phase, ->(phase) { where("status LIKE ?", "#{phase}%") }
-  scope :in_review, -> { where("status LIKE '%_clarified' OR status LIKE '%_review'") }
+  scope :in_review, -> { where("status IN (?) OR status LIKE '%_review'", ["plan_ready"]) }
+  scope :ordered_by_position, -> { order(Arel.sql("position IS NULL, position ASC, created_at DESC")) }
+  scope :in_group, ->(group) { where(request_group: group) }
+  scope :ungrouped, -> { where(request_group_id: nil) }
 
   # Scope for requests where user is on the project team
   scope :for_team_member, ->(user) {
@@ -52,22 +58,22 @@ class Request < ApplicationRecord
 
     case user.role
     when "pm"
-      # PM needs to approve: briefs (intake_clarified) and plans (planning_clarified, if not yet approved by PM)
+      # PM needs to approve plans (plan_ready, if not yet approved by PM)
       base_scope
         .left_joins(:approvals)
-        .where(status: ["intake_clarified", "planning_clarified"])
+        .where(status: ["plan_ready"])
         .where.not(
-          id: Approval.where(phase: ["brief", "plan"])
+          id: Approval.where(phase: "plan")
                       .joins(:user)
                       .where(users: { role: :pm })
                       .select(:request_id)
         )
         .distinct
     when "dev"
-      # Dev needs to approve: plans (planning_clarified, if not yet approved by dev) and execution (execution_review)
+      # Dev needs to approve: plans (plan_ready, if not yet approved by dev) and execution (execution_review)
       base_scope
         .left_joins(:approvals)
-        .where(status: ["planning_clarified", "execution_review"])
+        .where(status: ["plan_ready", "execution_review"])
         .where.not(
           id: Approval.where(phase: ["plan", "execution"])
                       .joins(:user)
@@ -77,24 +83,21 @@ class Request < ApplicationRecord
         .distinct
     when "designer"
       # Designers don't have approval responsibilities, but might see requests needing design input
-      base_scope.where(requires_design_input: true, status: ["intake_clarified", "planning_clarified"])
+      base_scope.where(requires_design_input: true, status: ["plan_ready"])
     else
       none
     end
   }
 
-  # Auto-assign request number on creation (scoped to project)
+  # Auto-assign request number and position on creation (scoped to project)
   before_create :assign_request_number
+  before_create :assign_position
 
   aasm column: :status do
     state :intake_pending, initial: true
     state :intake_in_progress
     state :intake_needs_clarification  # Agent asked clarifying questions
-    state :intake_clarified            # Brief extracted, ready for approval
-    state :planning_pending
-    state :planning_in_progress
-    state :planning_needs_clarification  # Agent asked clarifying questions
-    state :planning_clarified            # Plan extracted, ready for approval
+    state :plan_ready                  # Plan extracted, ready for approval
     state :execution_pending
     state :execution_in_progress
     state :execution_review
@@ -107,40 +110,26 @@ class Request < ApplicationRecord
 
     event :request_clarification do
       transitions from: :intake_in_progress, to: :intake_needs_clarification
-      transitions from: :planning_in_progress, to: :planning_needs_clarification
     end
 
-    event :clarify_intake do
-      transitions from: :intake_in_progress, to: :intake_clarified
-      transitions from: :intake_needs_clarification, to: :intake_clarified
-    end
-
-    event :approve_intake do
-      transitions from: :intake_clarified, to: :planning_pending
-    end
-
-    event :revise_intake do
-      transitions from: :intake_clarified, to: :intake_in_progress
+    event :resume_intake do
+      # User responded to clarification questions, agent resumes work
       transitions from: :intake_needs_clarification, to: :intake_in_progress
     end
 
-    # Planning flow
-    event :start_planning do
-      transitions from: :planning_pending, to: :planning_in_progress
-    end
-
-    event :clarify_planning do
-      transitions from: :planning_in_progress, to: :planning_clarified
-      transitions from: :planning_needs_clarification, to: :planning_clarified
+    event :clarify_intake do
+      # Agent produced a plan
+      transitions from: :intake_in_progress, to: :plan_ready
+      transitions from: :intake_needs_clarification, to: :plan_ready
     end
 
     event :approve_plan do
-      transitions from: :planning_clarified, to: :execution_pending
+      transitions from: :plan_ready, to: :execution_pending
     end
 
     event :revise_plan do
-      transitions from: :planning_clarified, to: :planning_in_progress
-      transitions from: :planning_needs_clarification, to: :planning_in_progress
+      # Send back to agent for revision
+      transitions from: :plan_ready, to: :intake_in_progress
     end
 
     # Execution flow
@@ -163,17 +152,22 @@ class Request < ApplicationRecord
 
   # Helper to get current phase
   def current_phase
-    status.to_s.split("_").first
+    case status.to_s
+    when "plan_ready"
+      "intake"
+    else
+      status.to_s.split("_").first
+    end
   end
 
   # Check if request is awaiting user input (for polling logic)
   def awaiting_user_input?
-    status.end_with?("_needs_clarification", "_clarified", "_review") || status == "completed"
+    %w[intake_needs_clarification plan_ready execution_review completed].include?(status.to_s)
   end
 
   # Check if request is in a review/approval state
   def in_review_state?
-    status.end_with?("_clarified", "_review")
+    %w[plan_ready execution_review].include?(status.to_s)
   end
 
   # Display title: prefer generated_title, fall back to original_input
@@ -185,11 +179,6 @@ class Request < ApplicationRecord
   def numbered_title
     number_prefix = request_number ? "REQ-#{request_number}: " : ""
     "#{number_prefix}#{display_title}"
-  end
-
-  # Get the latest brief
-  def latest_brief
-    briefs.order(version: :desc).first
   end
 
   # Get the latest plan
@@ -206,16 +195,6 @@ class Request < ApplicationRecord
   # ========================================
   # Role-based approval methods
   # ========================================
-
-  # Brief approval: requires PM only
-  def brief_approved?
-    approvals.for_brief.joins(:user).where(users: { role: :pm }).exists?
-  end
-
-  def brief_approval_status
-    pm_approved = approvals.for_brief.joins(:user).where(users: { role: :pm }).first
-    { pm: pm_approved }
-  end
 
   # Plan approval: requires BOTH PM and Dev
   def plan_approved?
@@ -246,9 +225,7 @@ class Request < ApplicationRecord
     return false unless in_review_state?
 
     case status
-    when "intake_clarified"
-      user.can_approve_brief? && !user_has_approved_phase?(user, "brief")
-    when "planning_clarified"
+    when "plan_ready"
       user.can_approve_plan? && !user_has_approved_phase?(user, "plan")
     when "execution_review"
       user.can_approve_execution? && !user_has_approved_phase?(user, "execution")
@@ -273,8 +250,7 @@ class Request < ApplicationRecord
   # Get the current phase that needs approval
   def current_approval_phase
     case status
-    when "intake_clarified" then "brief"
-    when "planning_clarified" then "plan"
+    when "plan_ready" then "plan"
     when "execution_review" then "execution"
     end
   end
@@ -282,9 +258,7 @@ class Request < ApplicationRecord
   # Check if all required approvals are present for the current phase
   def all_approvals_present?
     case status
-    when "intake_clarified"
-      brief_approved?
-    when "planning_clarified"
+    when "plan_ready"
       plan_approved?
     when "execution_review"
       execution_approved?
@@ -298,5 +272,12 @@ class Request < ApplicationRecord
   def assign_request_number
     max_number = project.requests.maximum(:request_number) || 0
     self.request_number = max_number + 1
+  end
+
+  def assign_position
+    return if position.present? # Don't overwrite if already set
+
+    max_position = project.requests.maximum(:position) || 0
+    self.position = max_position + 1
   end
 end

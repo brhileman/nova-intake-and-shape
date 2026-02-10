@@ -1,0 +1,69 @@
+<%#
+  List of decomposition plans for a project
+  Locals: project, plans
+%>
+<%
+  project = local_assigns[:project]
+  plans = local_assigns[:plans] || []
+%>
+
+<div class="flex flex-col max-h-[85vh]">
+  <%# Modal Header %>
+  <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700 rounded-t-xl bg-slate-800">
+    <div class="flex items-center gap-3">
+      <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
+        <svg class="h-5 w-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-lg font-semibold text-slate-100">Planning</h2>
+        <p class="text-sm text-slate-400">Break down initiatives into actionable requests</p>
+      </div>
+    </div>
+    <button type="button"
+            data-action="click->modal#close"
+            class="rounded-lg p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors">
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <%# Modal Body %>
+  <div class="flex-1 overflow-y-auto bg-slate-800 p-6">
+    <%# New Plan Button %>
+    <div class="mb-6">
+      <%= link_to new_plan_project_decomposition_plans_path(project),
+          data: { turbo_frame: "decomposition_plan_modal" },
+          class: "flex items-center gap-3 w-full p-4 rounded-lg border-2 border-dashed border-slate-600 hover:border-cyan-500 hover:bg-slate-700/50 transition-colors group" do %>
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-600/20 group-hover:bg-cyan-600/30 transition-colors">
+          <svg class="h-5 w-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-200 group-hover:text-white">Start New Plan</p>
+          <p class="text-xs text-slate-400">Describe an initiative to break down into requests</p>
+        </div>
+      <% end %>
+    </div>
+
+    <% if plans.any? %>
+      <%# All Plans - chronological list %>
+      <div class="space-y-2">
+        <% plans.each do |plan| %>
+          <%= render "decomposition_plans/plan_list_item", plan: plan, project: project %>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="text-center py-8">
+        <svg class="h-12 w-12 text-slate-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <p class="text-sm text-slate-400">No plans yet</p>
+        <p class="text-xs text-slate-500 mt-1">Start a new plan to break down your initiatives</p>
+      </div>
+    <% end %>
+  </div>
+</div>
