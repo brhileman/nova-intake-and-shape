@@ -161,6 +161,12 @@ class RequestsController < ApplicationController
       # Send to agent (non-blocking from status perspective)
       begin
         agent = agent_class.new(@request)
+
+        # Record message count BEFORE followup so we can detect genuinely new responses
+        conv = agent.conversation
+        current_count = (conv["messages"] || []).length
+        @request.update_column(:agent_message_count_at_followup, current_count + 1)
+
         agent.followup(message)
 
         # The followup call is synchronous -- by the time it returns, the agent
@@ -172,6 +178,8 @@ class RequestsController < ApplicationController
         end
       rescue StandardError => e
         Rails.logger.error "[Nova Flow] Failed to send followup to agent: #{e.message}"
+        # Revert the status transition on failure so the user can try again
+        revert_status_on_followup_failure
       end
     end
 
@@ -410,10 +418,24 @@ class RequestsController < ApplicationController
 
     case @request.status
     when "intake_in_progress", "intake_needs_clarification"
-      if agent_status == "FINISHED"
-        handle_intake_agent_finished(client)
-      elsif check_for_new_agent_response?(client)
-        handle_intake_agent_finished(client)
+      # Guard: only process if there's a genuinely new assistant message
+      # This prevents re-processing stale data from a previous agent turn
+      if @request.agent_message_count_at_followup.present?
+        conv = client.get_conversation(@request.current_agent_id)
+        current_count = (conv["messages"] || []).length
+        if current_count <= @request.agent_message_count_at_followup
+          return @request.reload
+        end
+        # New message detected -- pass the already-fetched conversation through
+        if agent_status == "FINISHED" || has_status_marker?(conv)
+          handle_intake_agent_finished_with_conversation(conv)
+        end
+      else
+        if agent_status == "FINISHED"
+          handle_intake_agent_finished(client)
+        elsif check_for_new_agent_response?(client)
+          handle_intake_agent_finished(client)
+        end
       end
     when "execution_in_progress"
       if agent_status == "FINISHED"
@@ -432,6 +454,12 @@ class RequestsController < ApplicationController
     conv = client.get_conversation(@request.current_agent_id)
     messages = conv["messages"] || []
 
+    # If we have a message count from a recent followup, verify the
+    # conversation has actually grown before considering it a new response
+    if @request.agent_message_count_at_followup.present?
+      return false if messages.length <= @request.agent_message_count_at_followup
+    end
+
     # Find the latest assistant message
     last_agent_msg = messages.reverse.find { |m| m["type"] == "assistant_message" }
     return false unless last_agent_msg
@@ -444,9 +472,26 @@ class RequestsController < ApplicationController
     false
   end
 
+  # Check if a pre-fetched conversation contains a status marker in its last assistant message
+  def has_status_marker?(conv)
+    messages = conv["messages"] || []
+    last_agent_msg = messages.reverse.find { |m| m["type"] == "assistant_message" }
+    return false unless last_agent_msg
+
+    content = last_agent_msg["text"] || ""
+    PlanExtractor.detect_status(content) != :unknown
+  end
+
   def handle_intake_agent_finished(client)
     conv = client.get_conversation(@request.current_agent_id)
-    last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
+    handle_intake_agent_finished_with_conversation(conv)
+  end
+
+  # Process an intake agent response using a pre-fetched conversation.
+  # This avoids redundant API calls when the conversation was already fetched
+  # (e.g. during message-count checks).
+  def handle_intake_agent_finished_with_conversation(conv)
+    last_agent_msg = (conv["messages"] || []).reverse.find { |m| m["type"] == "assistant_message" }
     return unless last_agent_msg
 
     content = last_agent_msg["text"]
@@ -544,6 +589,24 @@ class RequestsController < ApplicationController
       Rails.logger.error "[Nova Flow] Failed to save execution details: #{e.message}"
       # Silent fail - execution details won't be saved but request can still complete
     end
+  end
+
+  # Revert the status transition when a followup API call fails.
+  # Without this, the request stays in *_in_progress but no agent is working,
+  # leaving the user stuck.
+  def revert_status_on_followup_failure
+    case @request.status
+    when "intake_in_progress"
+      @request.request_clarification! if @request.may_request_clarification?
+    when "execution_in_progress"
+      # For execution, revert to execution_review if possible
+      # (revise_execution goes from execution_review -> execution_in_progress,
+      #  so the reverse would be complete_execution, but we use a direct update
+      #  since AASM may not have a reverse transition defined)
+      @request.update_column(:status, "execution_review") if @request.may_complete_execution? == false
+    end
+  rescue => e
+    Rails.logger.error "[Nova Flow] Failed to revert status after followup failure: #{e.message}"
   end
 
   # Extract PR URL from conversation messages as a fallback

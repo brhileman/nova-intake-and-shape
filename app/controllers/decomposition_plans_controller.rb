@@ -98,6 +98,12 @@ class DecompositionPlansController < ApplicationController
 
     begin
       agent = Agents::PlanningDecompositionAgent.new(@decomposition_plan)
+
+      # Record message count BEFORE followup so we can detect genuinely new responses
+      conv = agent.conversation
+      current_count = (conv["messages"] || []).length
+      @decomposition_plan.update_column(:agent_message_count_at_followup, current_count + 1)
+
       agent.followup(message)
 
       # Set status back to planning since agent is working
@@ -115,6 +121,8 @@ class DecompositionPlansController < ApplicationController
         format.html { redirect_to project_decomposition_plan_path(@project, @decomposition_plan) }
       end
     rescue StandardError => e
+      # Revert status on failure so the user can try again
+      @decomposition_plan.update!(status: "needs_clarification") if @decomposition_plan.status == "planning"
       respond_to do |format|
         format.turbo_stream { head :unprocessable_entity }
         format.html { redirect_to project_decomposition_plan_path(@project, @decomposition_plan), alert: e.message }
@@ -216,15 +224,38 @@ class DecompositionPlansController < ApplicationController
 
     begin
       client = CursorApi::Client.new
-      agent_status = client.get_agent(@decomposition_plan.agent_id)
-      status_str = agent_status["status"]&.to_s&.upcase
 
-      Rails.logger.info "[DecompositionPlan #{@decomposition_plan.id}] Agent status: #{status_str}"
+      # Guard: if we have a message count from a recent followup, verify the
+      # conversation has actually grown before processing
+      if @decomposition_plan.agent_message_count_at_followup.present?
+        conv = client.get_conversation(@decomposition_plan.agent_id)
+        current_count = (conv["messages"] || []).length
 
-      # Only transition when agent is truly FINISHED - agents send multiple messages while working
-      # This matches the proven pattern from the request flow
-      if status_str == "FINISHED"
-        handle_agent_finished(client)
+        if current_count <= @decomposition_plan.agent_message_count_at_followup
+          Rails.logger.info "[DecompositionPlan #{@decomposition_plan.id}] Waiting for new message " \
+                            "(#{current_count}/#{@decomposition_plan.agent_message_count_at_followup})"
+          return
+        end
+
+        # New message detected -- check agent status and process
+        agent_status = client.get_agent(@decomposition_plan.agent_id)
+        status_str = agent_status["status"]&.to_s&.upcase
+        Rails.logger.info "[DecompositionPlan #{@decomposition_plan.id}] Agent status: #{status_str} (new message detected)"
+
+        if status_str == "FINISHED"
+          handle_agent_finished_with_conversation(conv)
+        end
+      else
+        agent_status = client.get_agent(@decomposition_plan.agent_id)
+        status_str = agent_status["status"]&.to_s&.upcase
+
+        Rails.logger.info "[DecompositionPlan #{@decomposition_plan.id}] Agent status: #{status_str}"
+
+        # Only transition when agent is truly FINISHED - agents send multiple messages while working
+        # This matches the proven pattern from the request flow
+        if status_str == "FINISHED"
+          handle_agent_finished(client)
+        end
       end
     rescue CursorApi::Client::Error => e
       Rails.logger.error "[DecompositionPlan #{@decomposition_plan.id}] Error checking agent status: #{e.message}"
@@ -234,7 +265,14 @@ class DecompositionPlansController < ApplicationController
 
   def handle_agent_finished(client)
     conv = client.get_conversation(@decomposition_plan.agent_id)
-    last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
+    handle_agent_finished_with_conversation(conv)
+  end
+
+  # Process a finished agent using a pre-fetched conversation.
+  # Avoids redundant API calls when the conversation was already fetched
+  # during message-count checks.
+  def handle_agent_finished_with_conversation(conv)
+    last_agent_msg = (conv["messages"] || []).reverse.find { |m| m["type"] == "assistant_message" }
 
     unless last_agent_msg
       Rails.logger.warn "[DecompositionPlan #{@decomposition_plan.id}] No assistant message found, setting to needs_clarification"

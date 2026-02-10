@@ -2,6 +2,10 @@
 import "@hotwired/turbo-rails"
 import "controllers"
 
+// Disable Turbo Drive link prefetching on hover
+// (prevents unnecessary server requests when simply mousing over links)
+Turbo.config.drive.prefetchOnLinkHover = false
+
 // Page Loading Overlay Management
 ;(() => {
   let showTimeout

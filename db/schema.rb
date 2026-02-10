@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_08_152952) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   create_schema "extensions"
 
   # These are extensions that must be enabled in order to support this database
@@ -78,6 +78,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_152952) do
 
   create_table "public.decomposition_plans", force: :cascade do |t|
     t.string "agent_id"
+    t.integer "agent_message_count_at_followup"
     t.datetime "created_at", null: false
     t.bigint "created_by_id"
     t.text "original_input", null: false
@@ -157,6 +158,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_152952) do
   end
 
   create_table "public.requests", force: :cascade do |t|
+    t.integer "agent_message_count_at_followup"
     t.datetime "created_at", null: false
     t.bigint "created_by_id"
     t.string "current_agent_id"

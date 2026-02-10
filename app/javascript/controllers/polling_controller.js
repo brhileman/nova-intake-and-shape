@@ -8,11 +8,16 @@ export default class extends Controller {
   static values = {
     url: String,
     requestId: Number,
-    interval: { type: Number, default: 10000 }  // 10 seconds
+    interval: { type: Number, default: 10000 },     // 10 seconds (normal)
+    fastInterval: { type: Number, default: 3000 }    // 3 seconds (after followup)
   }
 
   connect() {
     this.boundHandleStreamRender = this.handleStreamRender.bind(this)
+    this.fastPollCount = 0
+    this.maxFastPolls = 10  // 10 fast polls × 3s = 30s of fast polling
+    this.isFastPolling = false
+    this.previousStatus = this.getStatus()
     this.startPollingIfNeeded()
     
     // Listen for Turbo stream updates to detect status changes
@@ -33,7 +38,18 @@ export default class extends Controller {
     }
     
     // After any Turbo stream update for this request, re-evaluate polling
-    setTimeout(() => this.evaluatePolling(), 100)
+    setTimeout(() => {
+      const newStatus = this.getStatus()
+      
+      // Detect transition TO *_in_progress (user just sent a followup)
+      // and enable fast polling for quicker feedback
+      if (newStatus.endsWith("_in_progress") && !this.previousStatus.endsWith("_in_progress")) {
+        this.enableFastPolling()
+      }
+      
+      this.previousStatus = newStatus
+      this.evaluatePolling()
+    }, 100)
   }
 
   evaluatePolling() {
@@ -44,12 +60,45 @@ export default class extends Controller {
     }
   }
 
+  // Enable fast polling mode (3s intervals) for quicker feedback after a followup.
+  // Automatically falls back to normal interval after maxFastPolls cycles.
+  enableFastPolling() {
+    this.isFastPolling = true
+    this.fastPollCount = 0
+    // Restart polling with the fast interval
+    this.stopPolling()
+    // startPollingIfNeeded will pick up the fast interval via currentInterval()
+  }
+
+  // Returns the current polling interval based on fast/normal mode
+  currentInterval() {
+    if (this.isFastPolling && this.fastPollCount < this.maxFastPolls) {
+      return this.fastIntervalValue
+    }
+    return this.intervalValue
+  }
+
   startPollingIfNeeded() {
     if (this.shouldPoll() && !this.polling) {
-      console.log(`[Request ${this.requestIdValue}] Starting polling - status:`, this.getStatus())
+      console.log(`[Request ${this.requestIdValue}] Starting polling - status:`, this.getStatus(),
+        this.isFastPolling ? '(fast mode)' : '(normal mode)')
       // Poll immediately, then every interval
       this.poll()
-      this.polling = setInterval(() => this.poll(), this.intervalValue)
+      this.polling = setInterval(() => {
+        this.poll()
+
+        // Track fast poll count and downgrade to normal interval when exhausted
+        if (this.isFastPolling) {
+          this.fastPollCount++
+          if (this.fastPollCount >= this.maxFastPolls) {
+            console.log(`[Request ${this.requestIdValue}] Fast polling exhausted, switching to normal interval`)
+            this.isFastPolling = false
+            // Restart with normal interval
+            this.stopPolling()
+            this.startPollingIfNeeded()
+          }
+        }
+      }, this.currentInterval())
     }
   }
 
