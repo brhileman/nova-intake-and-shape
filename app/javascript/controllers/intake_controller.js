@@ -136,6 +136,11 @@ export default class extends Controller {
 
       this.updateStatus(data.status)
 
+      // Restore original_input from session if we lost it (e.g., page refresh)
+      if (data.original_input && !this.originalInput) {
+        this.originalInput = data.original_input
+      }
+
       // Update messages if in chat mode
       if (data.status === "needs_clarification") {
         this.updateMessages(data.messages)
@@ -208,6 +213,13 @@ export default class extends Controller {
   }
 
   async createRequest(planContent) {
+    // Validate we have the original input
+    if (!this.originalInput) {
+      console.error("Create request error: originalInput is missing")
+      this.showError("Session expired. Please refresh the page and try again.")
+      return
+    }
+
     // Create the actual request with the plan
     try {
       const response = await fetch("/requests", {

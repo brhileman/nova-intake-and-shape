@@ -38,6 +38,33 @@ class MessageDisplayHelperTest < ActionView::TestCase
     assert_equal "Add a new button to the homepage", result
   end
 
+  test "extracts user request with project context before it" do
+    # This tests the case where the full prompt is displayed
+    # e.g., "Project Context Testing again ## User Request add a new emoji"
+    intake_prompt = <<~PROMPT
+      You are an intake agent.
+
+      ## Project Context
+      Testing again
+
+      ## User Request
+      add a new emoji
+    PROMPT
+
+    result = display_message_text(intake_prompt)
+
+    assert_equal "add a new emoji", result
+  end
+
+  test "extracts user request with Windows line endings" do
+    # Test CRLF line endings
+    intake_prompt = "You are an intake agent.\r\n\r\n## User Request\r\nadd a feature\r\n"
+
+    result = display_message_text(intake_prompt)
+
+    assert_equal "add a feature", result
+  end
+
   test "returns approved brief for planning transition prompt" do
     planning_transition = <<~PROMPT
       The intake brief has been approved. Now transition to the planning phase.
@@ -79,5 +106,24 @@ class MessageDisplayHelperTest < ActionView::TestCase
   test "returns empty string for blank text" do
     assert_equal "", display_message_text(nil)
     assert_equal "", display_message_text("")
+  end
+
+  test "extracts user feedback from plan refinement prompt" do
+    refinement_prompt = <<~PROMPT
+      You are helping refine an implementation plan.
+
+      ## Current Plan
+      Some plan content
+
+      ## User Feedback
+      Please add error handling to step 3
+
+      ## Project Context
+      Some context
+    PROMPT
+
+    result = display_message_text(refinement_prompt)
+
+    assert_equal "Please add error handling to step 3", result
   end
 end

@@ -87,7 +87,8 @@ class IntakeController < ApplicationController
       response = {
         success: true,
         status: intake_status,
-        messages: format_messages(messages)
+        messages: format_messages(messages),
+        original_input: session[:intake_original_input]
       }
 
       # If plan is ready, include the plan content
@@ -120,21 +121,22 @@ class IntakeController < ApplicationController
 
     content = last_assistant_msg["text"] || ""
 
-    # Check for clarification markers
-    if content.include?("[STATUS: NEEDS_CLARIFICATION]") ||
+    # Check for plan markers FIRST (agent outputs "STATUS: clarified" when plan is ready)
+    # This must come before clarification check to avoid false positives from conversation history
+    if content.match?(/STATUS:\s*clarified/i) ||
+       content.include?("## Implementation Plan") ||
+       content.include?("## Plan") ||
+       content.include?("### Tasks") ||
+       content.include?("## Summary")
+      return "plan_ready"
+    end
+
+    # Check for clarification markers (agent outputs "STATUS: needs_clarification")
+    if content.match?(/STATUS:\s*needs_clarification/i) ||
        content.include?("could you clarify") ||
        content.include?("I need more information") ||
        content.include?("Can you tell me more")
       return "needs_clarification"
-    end
-
-    # Check for plan markers
-    if content.include?("[STATUS: PLAN_READY]") ||
-       content.include?("## Plan") ||
-       content.include?("## Implementation Plan") ||
-       content.include?("### Tasks") ||
-       content.include?("## Summary")
-      return "plan_ready"
     end
 
     # Default to needs_clarification if finished but unclear
@@ -147,21 +149,23 @@ class IntakeController < ApplicationController
 
     content = last_assistant_msg["text"] || ""
 
-    # Try to extract plan section
-    if content.include?("[STATUS: PLAN_READY]")
-      # Remove the status marker and return the rest
-      content.gsub("[STATUS: PLAN_READY]", "").strip
-    else
-      # Return the full content as the plan
-      content
-    end
+    # Remove status markers and return the plan content
+    content
+      .gsub(/---\s*STATUS:\s*clarified\s*$/i, "")
+      .gsub(/STATUS:\s*clarified/i, "")
+      .strip
   end
 
   def format_messages(messages)
     messages.map do |msg|
+      is_user = msg["type"] == "user_message"
+      raw_text = msg["text"] || ""
+      # For user messages, extract just the user's actual input (hide system prompts)
+      display_text = is_user ? helpers.display_message_text(raw_text) : raw_text
+
       {
         type: msg["type"],
-        text: msg["text"],
+        text: display_text,
         timestamp: msg["timestamp"]
       }
     end

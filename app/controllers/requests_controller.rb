@@ -49,28 +49,42 @@ class RequestsController < ApplicationController
     @request.created_by = current_user
     # Request is created with plan_ready status (intake happens before creation)
 
-    if @request.save
-      # Create the plan record if plan content was provided
-      if params[:plan_content].present?
-        @request.plans.create!(
-          content: params[:plan_content],
-          created_by: current_user
-        )
+    ActiveRecord::Base.transaction do
+      if @request.save
+        # Create the plan record if plan content was provided
+        if params[:plan_content].present?
+          @request.plans.create!(
+            content: params[:plan_content],
+            created_by: current_user
+          )
 
-        # Extract structured data from the plan
-        extracted = PlanExtractor.new(params[:plan_content]).extract
-        @request.update!(extracted)
-      end
+          # Extract structured data from the plan
+          extracted = PlanExtractor.new(params[:plan_content]).extract
+          @request.update!(extracted)
+        end
 
-      respond_to do |format|
-        format.html { redirect_to @request, notice: "Request created successfully." }
-        format.json { render json: { success: true, redirect_url: request_path(@request) } }
+        respond_to do |format|
+          format.html { redirect_to @request, notice: "Request created successfully." }
+          format.json { render json: { success: true, redirect_url: request_path(@request) } }
+        end
+      else
+        respond_to do |format|
+          format.html { render :new, status: :unprocessable_entity }
+          format.json { render json: { success: false, errors: @request.errors.full_messages }, status: :unprocessable_entity }
+        end
       end
-    else
-      respond_to do |format|
-        format.html { render :new, status: :unprocessable_entity }
-        format.json { render json: { success: false, errors: @request.errors.full_messages }, status: :unprocessable_entity }
-      end
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    Rails.logger.error "[Nova Flow] Request creation failed: #{e.message}"
+    respond_to do |format|
+      format.html { render :new, status: :unprocessable_entity }
+      format.json { render json: { success: false, errors: [e.message] }, status: :unprocessable_entity }
+    end
+  rescue StandardError => e
+    Rails.logger.error "[Nova Flow] Unexpected error during request creation: #{e.class} - #{e.message}"
+    respond_to do |format|
+      format.html { redirect_to new_request_path, alert: "Failed to create request. Please try again." }
+      format.json { render json: { success: false, errors: ["An unexpected error occurred. Please try again."] }, status: :internal_server_error }
     end
   end
 

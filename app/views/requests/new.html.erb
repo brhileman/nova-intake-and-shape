@@ -1,6 +1,7 @@
 <%# Ephemeral intake page - agent interaction before Request record is created %>
 <%# Flow: Input -> Processing -> (if clarification needed) Chat -> Create Request %>
-<div class="flex flex-col h-screen bg-slate-900" 
+<%# Height: 100vh minus header (4rem) minus main py-8 padding (4rem) = calc(100vh - 8rem) %>
+<div class="flex flex-col h-[calc(100vh-8rem)] bg-slate-900" 
      data-controller="intake"
      data-intake-project-id-value="<%= current_project.id %>">
   
