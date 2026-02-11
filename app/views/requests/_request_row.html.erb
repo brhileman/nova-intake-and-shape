@@ -4,18 +4,18 @@
 <%
   show_project_column = local_assigns[:show_project] || false
   show_drag_handle = local_assigns[:show_drag_handle] || false
-  needs_action = %w[plan_ready execution_review intake_needs_clarification].include?(request.status)
+  needs_action = request.status == "plan_ready"
   
   # Determine stage from status
   stage = case request.current_phase
-  when "intake" then "Planning"
-  when "execution" then "Executing"
+  when "planning" then "Planning"
+  when "execution" then "Coding"
   else "Complete"
   end
   
   # Stage colors - dark mode
   stage_color = case request.current_phase
-  when "intake" then "bg-purple-900/50 text-purple-300"
+  when "planning" then "bg-purple-900/50 text-purple-300"
   when "execution" then "bg-amber-900/50 text-amber-300"
   else "bg-emerald-900/50 text-emerald-300"
   end
@@ -152,19 +152,6 @@
       <%
         # Determine who has pending tasks based on status
         pending_users = []
-        
-        case request.status
-        when "plan_ready"
-          # Plan needs PM and Dev approval
-          status = request.plan_approval_status
-          pending_users << request.project.pm if request.project.pm && !status[:pm]
-          pending_users << request.project.dev if request.project.dev && !status[:dev]
-        when "execution_review"
-          # Execution needs Dev approval
-          unless request.execution_approved?
-            pending_users << request.project.dev if request.project.dev
-          end
-        end
         
         # Add designer if design input is needed and we're in the planning phase
         if request.requires_design_input && 

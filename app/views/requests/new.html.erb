@@ -1,60 +1,91 @@
-<div class="max-w-2xl mx-auto">
-  <div class="mb-8">
-    <%= link_to requests_path, class: "inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200" do %>
-      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-      </svg>
-      Back to Requests
-    <% end %>
-  </div>
-
-  <div class="bg-slate-800 rounded-lg border border-slate-700 shadow-sm">
-    <div class="px-6 py-5 border-b border-slate-700">
-      <h1 class="text-xl font-bold text-slate-100">New Request</h1>
-      <p class="mt-1 text-sm text-slate-400">
-        Describe what you want to build, update, or fix. The intake agent will help clarify the details.
-      </p>
-    </div>
-
-    <%= form_with model: @request, class: "p-6" do |f| %>
-      <% if @request.errors.any? %>
-        <div class="mb-6 rounded-lg bg-red-900/50 p-4 border border-red-700">
-          <div class="flex">
-            <div class="flex-shrink-0">
-              <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
-              </svg>
-            </div>
-            <div class="ml-3">
-              <h3 class="text-sm font-medium text-red-300">Please fix the following errors:</h3>
-              <ul class="mt-2 text-sm text-red-400 list-disc list-inside">
-                <% @request.errors.full_messages.each do |msg| %>
-                  <li><%= msg %></li>
-                <% end %>
-              </ul>
-            </div>
+<%# Ephemeral intake page - agent interaction before Request record is created %>
+<%# Flow: Input -> Processing -> (if clarification needed) Chat -> Create Request %>
+<div class="flex flex-col h-screen bg-slate-900" 
+     data-controller="intake"
+     data-intake-project-id-value="<%= current_project.id %>">
+  
+  <%# Input form (shown initially) %>
+  <div data-intake-target="inputForm" class="flex-1 flex flex-col p-6">
+    <div class="max-w-2xl mx-auto w-full flex-1 flex flex-col">
+      <%# Header - same width as content %>
+      <div class="pb-4 mb-6 border-b border-slate-700">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-lg font-semibold text-white">New Request</h1>
+            <p class="text-sm text-slate-400">Describe what you want to build, update, or fix</p>
           </div>
-        </div>
-      <% end %>
-
-      <div class="space-y-6">
-        <div>
-          <%= f.label :original_input, "What do you need?", class: "block text-sm font-medium text-slate-300 mb-2" %>
-          <%= f.text_area :original_input, 
-              rows: 6, 
-              placeholder: "Example: Add a dark mode toggle to the settings page that saves the user's preference...",
-              class: "block w-full rounded-lg bg-slate-700 border-slate-600 shadow-sm focus:border-[#00b4d8] focus:ring-[#00b4d8] text-slate-100 placeholder:text-slate-500 px-3 py-2" %>
-          <p class="mt-2 text-sm text-slate-400">
-            Be as specific as possible. Include context about the feature, bug, or enhancement.
-          </p>
-        </div>
-
-        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
-          <%= link_to "Cancel", requests_path, class: "rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-700 transition-colors" %>
-          <%= f.submit "Create Request", 
-              class: "rounded-lg bg-[#00b4d8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0096b4] transition-colors cursor-pointer" %>
+          <%= link_to requests_path, class: "text-sm text-slate-400 hover:text-white transition-colors" do %>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          <% end %>
         </div>
       </div>
-    <% end %>
+      
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Please describe your request</label>
+        <textarea name="original_input" 
+                  data-intake-target="input"
+                  placeholder="Example: Add a dark mode toggle to the settings page that saves the user's preference..."
+                  class="w-full h-48 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"></textarea>
+        <p class="mt-2 text-sm text-slate-400">
+          Be as specific as possible. The intake agent will help clarify details if needed.
+        </p>
+        
+        <button type="button" 
+                data-intake-target="submitButton"
+                data-action="click->intake#submit"
+                class="w-full mt-4 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium text-sm transition-colors">
+          Submit Request
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <%# Processing area (shown while agent analyzes request) %>
+  <div data-intake-target="processingArea" class="hidden flex-1 flex flex-col items-center justify-center p-6">
+    <div class="max-w-md text-center">
+      <div class="mb-6">
+        <svg class="w-12 h-12 mx-auto text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+      <h2 class="text-xl font-semibold text-white mb-2">Processing Your Request</h2>
+      <p data-intake-target="processingStatus" class="text-slate-400">
+        Agent is analyzing your request...
+      </p>
+      <p class="mt-4 text-sm text-slate-500">
+        This may take a moment. The agent will create a plan or ask clarifying questions.
+      </p>
+    </div>
+  </div>
+  
+  <%# Chat area (shown only if clarification is needed) %>
+  <div data-intake-target="chatArea" class="hidden flex-1 flex flex-col min-h-0">
+    <%# Header - fixed at top %>
+    <div class="flex-shrink-0 px-6 py-4 border-b border-slate-700 bg-slate-900">
+      <h2 class="text-lg font-semibold text-white">Clarification Needed</h2>
+      <p class="text-sm text-slate-400">The agent needs more information to create a plan</p>
+    </div>
+    
+    <%# Messages container - scrollable area %>
+    <div data-intake-target="messages" class="flex-1 overflow-y-auto p-6 space-y-3 min-h-0">
+      <%# Messages will be added here dynamically %>
+    </div>
+    
+    <%# Chat input - fixed at bottom %>
+    <div class="flex-shrink-0 p-4 border-t border-slate-700 bg-slate-900">
+      <form data-action="submit->intake#sendMessage" class="flex gap-3">
+        <input type="text" 
+               data-intake-target="chatInput"
+               placeholder="Type your response..."
+               class="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+        <button type="submit" 
+                class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md font-medium text-sm transition-colors">
+          Send
+        </button>
+      </form>
+    </div>
   </div>
 </div>

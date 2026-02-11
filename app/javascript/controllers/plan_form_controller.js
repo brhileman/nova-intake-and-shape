@@ -1,8 +1,17 @@
 import { Controller } from "@hotwired/stimulus"
+import { createLoadingTextRotator } from "utils/loading_messages"
 
 // Handles the decomposition plan form submission with loading states
 export default class extends Controller {
-  static targets = ["form", "loading", "input", "submitBtn", "btnText", "spinner"]
+  static targets = ["form", "loading", "input", "submitBtn", "btnText", "spinner", "loadingText"]
+
+  connect() {
+    this.loadingTextRotator = null
+  }
+
+  disconnect() {
+    this.stopLoadingTextRotation()
+  }
 
   submit(event) {
     // Validate input
@@ -32,7 +41,22 @@ export default class extends Controller {
       if (this.hasFormTarget && this.hasLoadingTarget) {
         this.formTarget.classList.add("hidden")
         this.loadingTarget.classList.remove("hidden")
+        this.startLoadingTextRotation()
       }
     }, 300)
+  }
+
+  startLoadingTextRotation() {
+    if (this.hasLoadingTextTarget && !this.loadingTextRotator) {
+      this.loadingTextRotator = createLoadingTextRotator(this.loadingTextTarget)
+      this.loadingTextRotator.start()
+    }
+  }
+
+  stopLoadingTextRotation() {
+    if (this.loadingTextRotator) {
+      this.loadingTextRotator.stop()
+      this.loadingTextRotator = null
+    }
   }
 }

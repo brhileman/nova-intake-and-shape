@@ -1,0 +1,30 @@
+<%# Content panel - Column 3 of the new layout %>
+<%# Renders different content based on active_panel: 'plan', 'design', 'technical', 'comments', or 'build' %>
+
+<div class="flex-1 flex flex-col px-6 pt-6 pb-8 overflow-hidden">
+  <% case active_panel %>
+  <% when 'plan' %>
+    <%# Request Plan view %>
+    <%= render "plan_editor", request: request %>
+    
+  <% when 'design' %>
+    <%# Design Guidance view %>
+    <%= render "design_guidance_form", request: request %>
+    
+  <% when 'technical' %>
+    <%# Technical Guidance view %>
+    <%= render "technical_guidance_form", request: request %>
+    
+  <% when 'comments' %>
+    <%# Team Comments view %>
+    <%= render "comments_panel", request: request %>
+    
+  <% when 'build' %>
+    <%# Build Log view %>
+    <%= render "build_log_panel", request: request, conversation: @conversation %>
+    
+  <% else %>
+    <%# Default to plan view %>
+    <%= render "plan_editor", request: request %>
+  <% end %>
+</div>

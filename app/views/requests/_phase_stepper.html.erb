@@ -2,8 +2,8 @@
 <% req = local_assigns[:request] || @request %>
 <%
   phases = [
-    { name: "Planning", states: %w[intake_pending intake_in_progress intake_needs_clarification plan_ready] },
-    { name: "Execution", states: %w[execution_pending execution_in_progress execution_review completed] }
+    { name: "Planning", states: %w[plan_ready] },
+    { name: "Execution", states: %w[execution_in_progress completed] }
   ]
   
   current_phase_index = phases.find_index { |p| p[:states].include?(req.status) } || 0

@@ -42,6 +42,10 @@ class DesignGuidancesController < ApplicationController
   end
 
   def design_guidance_params
-    params.require(:design_guidance).permit(:specifications, :figma_url, images: [])
+    params.require(:design_guidance).permit(
+      :specifications,
+      images: [],
+      figma_links_attributes: [:id, :url, :description, :position, :_destroy]
+    )
   end
 end

@@ -28,7 +28,7 @@ module Agents
         images: images
       )
 
-      @request.update!(current_agent_id: response["id"])
+      @request.update!(execution_agent_id: response["id"])
       response
     end
 
@@ -37,25 +37,30 @@ module Agents
     # @param images [Array<Hash>] Optional array of images with :url keys
     # @return [Hash] Response
     def followup(message, images: [])
-      raise "No agent running for this request" unless @request.current_agent_id
+      raise "No agent running for this request" unless @request.execution_agent_id
 
-      @client.followup(@request.current_agent_id, prompt: message, images: images)
+      @client.followup(@request.execution_agent_id, prompt: message, images: images)
     end
 
     # Get current agent status
     # @return [Hash] Agent details
     def status
-      raise "No agent running for this request" unless @request.current_agent_id
+      raise "No agent running for this request" unless @request.execution_agent_id
 
-      @client.get_agent(@request.current_agent_id)
+      @client.get_agent(@request.execution_agent_id)
     end
 
     # Get conversation history
     # @return [Hash] Conversation with messages
     def conversation
-      raise "No agent running for this request" unless @request.current_agent_id
+      raise "No agent running for this request" unless @request.execution_agent_id
 
-      @client.get_conversation(@request.current_agent_id)
+      @client.get_conversation(@request.execution_agent_id)
+    end
+
+    # Get the agent ID
+    def agent_id
+      @request.execution_agent_id
     end
 
     protected

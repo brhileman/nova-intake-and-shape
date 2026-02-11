@@ -43,9 +43,10 @@
       </div>
       
       <%# Debug info in development %>
-      <% if Rails.env.development? && request.current_agent_id %>
+      <% if Rails.env.development? && (request.execution_agent_id || request.planning_agent_id) %>
         <p class="mt-2 text-xs text-slate-400 font-mono truncate">
-          Agent: <%= request.current_agent_id %>
+          <% if request.execution_agent_id %>Exec: <%= request.execution_agent_id.truncate(12) %><% end %>
+          <% if request.planning_agent_id %> Plan: <%= request.planning_agent_id.truncate(12) %><% end %>
         </p>
       <% end %>
       

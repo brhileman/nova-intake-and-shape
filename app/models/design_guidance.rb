@@ -5,6 +5,9 @@ class DesignGuidance < ApplicationRecord
   belongs_to :user, optional: true
 
   has_many_attached :images
+  has_many :figma_links, dependent: :destroy
+
+  accepts_nested_attributes_for :figma_links, allow_destroy: true, reject_if: :all_blank
 
   validates :request, uniqueness: true
 
@@ -15,9 +18,9 @@ class DesignGuidance < ApplicationRecord
     user&.name || provided_by || "Unknown"
   end
 
-  # Check if guidance has been provided (has images or specifications)
+  # Check if guidance has been provided (has images, specifications, or figma links)
   def provided?
-    images.attached? || specifications.present?
+    images.attached? || specifications.present? || figma_links.any?
   end
 
   # Get image URLs for API consumption (returns array of public URLs)

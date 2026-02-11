@@ -19,8 +19,8 @@
   <%# Request Title & Phase Header %>
   <%
     phases = [
-      { name: "Planning", states: %w[intake_pending intake_in_progress intake_needs_clarification plan_ready] },
-      { name: "Execution", states: %w[execution_pending execution_in_progress execution_review completed] }
+      { name: "Planning", states: %w[plan_ready] },
+      { name: "Execution", states: %w[execution_in_progress completed] }
     ]
     current_phase = phases.find { |p| p[:states].include?(req.status) }
     phase_name = current_phase ? current_phase[:name] : "Unknown"
@@ -121,8 +121,11 @@
       <div class="pt-2 mt-2 border-t border-slate-700">
         <p class="text-[10px] text-slate-500 font-mono">
           Status: <%= req.status %><br>
-          <% if req.current_agent_id %>
-            Agent: <%= req.current_agent_id.truncate(16) %>
+          <% if req.execution_agent_id %>
+            Exec Agent: <%= req.execution_agent_id.truncate(16) %><br>
+          <% end %>
+          <% if req.planning_agent_id %>
+            Plan Agent: <%= req.planning_agent_id.truncate(16) %>
           <% end %>
         </p>
       </div>

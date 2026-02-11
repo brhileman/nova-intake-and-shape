@@ -71,6 +71,8 @@
   font-size: 14px;
   font-weight: 500;
   color: #94a3b8;
+  min-width: 280px;
+  text-align: center;
 }
 
 @keyframes spin {

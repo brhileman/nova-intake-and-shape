@@ -12,12 +12,12 @@
             data-action="click->modal#backdropClick"
             class="fixed z-50 w-full max-w-3xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
       <turbo-frame id="context_modal" src="<%= context_project_path(@project) %>" loading="lazy">
-        <div class="p-8 text-center text-slate-400">
+        <div class="p-8 text-center text-slate-400" data-controller="loading-text">
           <svg class="animate-spin h-8 w-8 mx-auto text-[#00b4d8]" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p class="mt-2">Loading...</p>
+          <p class="mt-2 min-w-[200px]" data-loading-text-target="text">Loading...</p>
         </div>
       </turbo-frame>
     </dialog>
@@ -70,12 +70,12 @@
               data-action="click->modal#backdropClick"
               class="fixed z-50 w-full max-w-7xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
         <turbo-frame id="decomposition_plan_modal" src="<%= new_project_decomposition_plan_path(@project) %>" loading="lazy">
-          <div class="p-8 text-center text-slate-400">
+          <div class="p-8 text-center text-slate-400" data-controller="loading-text">
             <svg class="animate-spin h-8 w-8 mx-auto text-cyan-500" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p class="mt-2">Loading...</p>
+            <p class="mt-2 min-w-[200px]" data-loading-text-target="text">Loading...</p>
           </div>
         </turbo-frame>
       </dialog>

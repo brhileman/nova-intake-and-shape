@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class RequestsController < ApplicationController
-  before_action :set_request, only: [ :show, :poll, :approve, :comment, :team_comment, :update_group, :update_priority, :update_dependencies ]
+  before_action :set_request, only: [ :show, :poll, :comment, :team_comment, :update_group, :update_priority, :update_dependencies, :build, :update_plan ]
   before_action :require_project, only: [ :index, :new, :create ]
 
   # GET /requests
@@ -33,7 +33,8 @@ class RequestsController < ApplicationController
   # GET /requests/:id
   def show
     @conversation = fetch_conversation
-    @comments = @request.comments.where(phase: @request.current_phase).order(:created_at)
+    @comments = @request.comments.order(:created_at)
+    @active_panel = params[:panel] || "plan"
   end
 
   # GET /requests/new
@@ -42,92 +43,39 @@ class RequestsController < ApplicationController
   end
 
   # POST /requests
+  # Called from intake page AFTER agent has drafted a plan
   def create
     @request = current_project.requests.build(request_params)
     @request.created_by = current_user
+    # Request is created with plan_ready status (intake happens before creation)
 
     if @request.save
-      # Auto-launch intake agent
-      @request.start_intake!
-      agent = Agents::IntakeAgent.new(@request)
-      agent.launch
+      # Create the plan record if plan content was provided
+      if params[:plan_content].present?
+        @request.plans.create!(
+          content: params[:plan_content],
+          created_by: current_user
+        )
 
-      redirect_to @request, notice: "Request created. Planning agent launched."
-    else
-      render :new, status: :unprocessable_entity
-    end
-  end
+        # Extract structured data from the plan
+        extracted = PlanExtractor.new(params[:plan_content]).extract
+        @request.update!(extracted)
+      end
 
-  # POST /requests/:id/approve
-  def approve
-    notice_message = nil
-
-    # Check if user can approve this phase
-    unless @request.can_user_approve?(current_user)
       respond_to do |format|
-        format.turbo_stream { head :unprocessable_entity }
-        format.html { redirect_to @request, alert: cannot_approve_message }
+        format.html { redirect_to @request, notice: "Request created successfully." }
+        format.json { render json: { success: true, redirect_url: request_path(@request) } }
       end
-      return
-    end
-
-    # Record the approval
-    @request.record_approval(current_user)
-
-    case @request.status
-    when "plan_ready"
-      if @request.all_approvals_present?
-        @request.approve_plan!
-        @request.start_execution!
-        # Use followup() to continue with the same agent instead of launching a new one
-        agent = Agents::ExecutionAgent.new(@request)
-        # Include design guidance images if provided
-        agent.followup(agent.build_execution_transition_prompt, images: agent.design_images)
-        notice_message = "Plan approved. Execution phase started."
-      else
-        status = @request.plan_approval_status
-        pending_roles = []
-        pending_roles << "PM" unless status[:pm]
-        pending_roles << "Dev" unless status[:dev]
-        notice_message = "Your approval has been recorded. Waiting for: #{pending_roles.join(', ')}"
-      end
-
-    when "execution_review"
-      if @request.all_approvals_present?
-        save_execution_from_agent
-        @request.approve_execution!
-        notice_message = "Execution approved. Request completed!"
-      else
-        notice_message = "Your approval has been recorded. Waiting for additional approvals."
-      end
-
     else
       respond_to do |format|
-        format.turbo_stream { head :unprocessable_entity }
-        format.html { redirect_to @request, alert: "Cannot approve from status: #{@request.status}" }
+        format.html { render :new, status: :unprocessable_entity }
+        format.json { render json: { success: false, errors: @request.errors.full_messages }, status: :unprocessable_entity }
       end
-      return
-    end
-
-    @conversation = fetch_conversation
-
-    respond_to do |format|
-      format.turbo_stream do
-        render turbo_stream: [
-          turbo_stream.update("chat_thread_#{@request.id}", partial: "chat_thread", locals: { request: @request, conversation: @conversation }),
-          turbo_stream.update("agent_status_#{@request.id}", partial: "agent_status", locals: { request: @request }),
-          turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
-          turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
-          turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
-          turbo_stream.update("pr_review_link_#{@request.id}", partial: "pr_review_link", locals: { request: @request }),
-          turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
-        ]
-      end
-      format.html { redirect_to @request, notice: notice_message }
     end
   end
 
   # POST /requests/:id/comment
+  # Send a message to the plan refinement or execution agent
   def comment
     message = params[:message]
 
@@ -140,46 +88,29 @@ class RequestsController < ApplicationController
       phase: @request.current_phase
     )
 
-    # Send to agent
-    agent_class = case @request.current_phase
-    when "intake" then Agents::IntakeAgent
-    when "execution" then Agents::ExecutionAgent
-    end
-
-    if agent_class && @request.current_agent_id
-      # Transition back to in_progress FIRST so polling resumes immediately,
-      # even if the followup call is slow or fails
-      case @request.status
-      when "intake_needs_clarification"
-        @request.resume_intake!
-      when "plan_ready"
-        @request.revise_plan!
-      when "execution_review"
-        @request.revise_execution!
+    # Determine which agent to use based on phase
+    if @request.in_planning_phase?
+      # Use plan refinement agent
+      agent_id = @request.planning_agent_id
+      if agent_id.present?
+        begin
+          agent = Agents::PlanRefinementAgent.new(@request)
+          agent.followup(message)
+        rescue StandardError => e
+          Rails.logger.error "[Nova Flow] Failed to send followup to planning agent: #{e.message}"
+        end
       end
-
-      # Send to agent (non-blocking from status perspective)
+    elsif (@request.execution_in_progress? || @request.completed?) && @request.execution_agent_id.present?
+      # Use execution agent (during execution or for follow-up changes after completion)
       begin
-        agent = agent_class.new(@request)
-
-        # Record message count BEFORE followup so we can detect genuinely new responses
-        conv = agent.conversation
-        current_count = (conv["messages"] || []).length
-        @request.update_column(:agent_message_count_at_followup, current_count + 1)
-
+        agent = Agents::ExecutionAgent.new(@request)
         agent.followup(message)
-
-        # The followup call is synchronous -- by the time it returns, the agent
-        # may have already responded and finished. Check immediately instead of
-        # waiting for the next poll cycle.
-        if @request.status.end_with?("_in_progress")
-          client = CursorApi::Client.new
-          check_and_transition_agent_status_with_client(client)
+        # If completed, transition back to in_progress since agent is working again
+        if @request.completed?
+          @request.update!(status: "execution_in_progress")
         end
       rescue StandardError => e
-        Rails.logger.error "[Nova Flow] Failed to send followup to agent: #{e.message}"
-        # Revert the status transition on failure so the user can try again
-        revert_status_on_followup_failure
+        Rails.logger.error "[Nova Flow] Failed to send followup to execution agent: #{e.message}"
       end
     end
 
@@ -190,10 +121,7 @@ class RequestsController < ApplicationController
       format.turbo_stream do
         render turbo_stream: [
           turbo_stream.update("chat_thread_#{@request.id}", partial: "chat_thread", locals: { request: @request, conversation: @conversation }),
-          turbo_stream.update("agent_status_#{@request.id}", partial: "agent_status", locals: { request: @request }),
-          turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
-          turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
-          turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
+          turbo_stream.update("build_log_messages_#{@request.id}", partial: "build_log_messages", locals: { request: @request, conversation: @conversation }),
           turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end
@@ -209,7 +137,7 @@ class RequestsController < ApplicationController
     if message.blank?
       respond_to do |format|
         format.turbo_stream { head :unprocessable_entity }
-        format.html { redirect_to @request, alert: "Comment cannot be blank." }
+        format.html { redirect_to request_path(@request, panel: 'comments'), alert: "Comment cannot be blank." }
       end
       return
     end
@@ -226,10 +154,10 @@ class RequestsController < ApplicationController
     respond_to do |format|
       format.turbo_stream do
         render turbo_stream: [
-          turbo_stream.update("team_comments_#{@request.id}", partial: "team_comments", locals: { request: @request })
+          turbo_stream.update("team_comments_list_#{@request.id}", partial: "comments_list", locals: { request: @request })
         ]
       end
-      format.html { redirect_to @request }
+      format.html { redirect_to request_path(@request, panel: 'comments') }
     end
   end
 
@@ -327,11 +255,8 @@ class RequestsController < ApplicationController
   # GET /requests/:id/poll
   # Polls for updates: checks agent status, auto-transitions when complete, returns updated UI
   def poll
-    # Check if agent has finished and auto-transition
-    if @request.current_agent_id && (
-      @request.status.end_with?("_in_progress") ||
-      @request.status == "intake_needs_clarification"
-    )
+    # Check if execution agent has finished and auto-transition
+    if @request.execution_in_progress? && @request.execution_agent_id.present?
       check_and_transition_agent_status
     end
 
@@ -341,17 +266,71 @@ class RequestsController < ApplicationController
       format.turbo_stream do
         render turbo_stream: [
           turbo_stream.update("chat_thread_#{@request.id}", partial: "chat_thread", locals: { request: @request, conversation: @conversation }),
-          turbo_stream.update("agent_status_#{@request.id}", partial: "agent_status", locals: { request: @request }),
-          turbo_stream.update("phase_stepper_#{@request.id}", partial: "phase_stepper", locals: { request: @request }),
-          turbo_stream.update("artifacts_#{@request.id}", partial: "artifacts_stack", locals: { request: @request }),
-          turbo_stream.update("project_overview_#{@request.id}", partial: "project_overview", locals: { request: @request }),
-          turbo_stream.update("pr_review_link_#{@request.id}", partial: "pr_review_link", locals: { request: @request }),
-          turbo_stream.update("team_comments_#{@request.id}", partial: "team_comments", locals: { request: @request }),
+          turbo_stream.update("build_log_messages_#{@request.id}", partial: "build_log_messages", locals: { request: @request, conversation: @conversation }),
           turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
         ]
       end
       format.html { redirect_to @request }
     end
+  end
+
+  # POST /requests/:id/build
+  # Starts execution - transitions to execution_in_progress and launches execution agent
+  def build
+    unless @request.plan_ready?
+      respond_to do |format|
+        format.turbo_stream { head :unprocessable_entity }
+        format.html { redirect_to @request, alert: "Cannot build - request is not in planning phase." }
+      end
+      return
+    end
+
+    # Transition to execution
+    @request.start_build!
+
+    # Launch NEW execution agent (clean slate) with plan + design guidance + technical guidance
+    agent = Agents::ExecutionAgent.new(@request)
+    agent.launch(images: agent.design_images)
+
+    # Store the execution agent ID
+    @request.update!(execution_agent_id: agent.agent_id)
+
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: [
+          turbo_stream.replace("request_status_value_#{@request.id}", html: "<div id='request_status_value_#{@request.id}' data-status='#{@request.status}' class='hidden'></div>".html_safe)
+        ]
+      end
+      # Redirect to the build log panel so user can see the agent working
+      format.html { redirect_to request_path(@request, panel: "build"), notice: "Build started. Execution agent launched." }
+    end
+  end
+
+  # PATCH /requests/:id/update_plan
+  # Auto-save endpoint for plan content (called by debounced JS)
+  def update_plan
+    plan_content = params[:plan_content]
+
+    if plan_content.blank?
+      head :unprocessable_entity
+      return
+    end
+
+    # Get existing plan or create new one
+    plan = @request.latest_plan || @request.plans.build(created_by: current_user)
+    
+    # Update plan content
+    if plan.new_record?
+      plan.content = plan_content
+      plan.save!
+    else
+      plan.update!(content: plan_content)
+    end
+
+    # Return JSON response for the JavaScript auto-save handler
+    render json: { success: true, saved_at: Time.current.iso8601 }
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { success: false, error: e.message }, status: :unprocessable_entity
   end
 
   private
@@ -370,31 +349,14 @@ class RequestsController < ApplicationController
     params.require(:request).permit(:original_input)
   end
 
-  def cannot_approve_message
-    if !current_user
-      "You must be logged in to approve."
-    elsif !@request.in_review_state?
-      "This request is not in a review state."
-    else
-      phase = @request.current_approval_phase
-      if @request.user_has_approved_phase?(current_user, phase)
-        "You have already approved this #{phase}."
-      else
-        required_role = case phase
-        when "plan" then "PM or Dev"
-        when "execution" then "Dev"
-        end
-        "Only #{required_role} can approve this phase. You are #{current_user.role.upcase}."
-      end
-    end
-  end
-
   def fetch_conversation
-    return [] unless @request.current_agent_id
+    # Try execution agent first, then planning agent
+    agent_id = @request.execution_agent_id || @request.planning_agent_id
+    return [] unless agent_id
 
     begin
       client = CursorApi::Client.new
-      conv = client.get_conversation(@request.current_agent_id)
+      conv = client.get_conversation(agent_id)
       conv["messages"] || []
     rescue CursorApi::Client::Error
       []
@@ -402,7 +364,7 @@ class RequestsController < ApplicationController
   end
 
   def check_and_transition_agent_status
-    return unless @request.current_agent_id
+    return unless @request.execution_agent_id
 
     begin
       client = CursorApi::Client.new
@@ -413,127 +375,21 @@ class RequestsController < ApplicationController
   end
 
   def check_and_transition_agent_status_with_client(client)
-    agent = client.get_agent(@request.current_agent_id)
+    agent = client.get_agent(@request.execution_agent_id)
     agent_status = agent["status"]&.upcase
 
-    case @request.status
-    when "intake_in_progress", "intake_needs_clarification"
-      # Guard: only process if there's a genuinely new assistant message
-      # This prevents re-processing stale data from a previous agent turn
-      if @request.agent_message_count_at_followup.present?
-        conv = client.get_conversation(@request.current_agent_id)
-        current_count = (conv["messages"] || []).length
-        if current_count <= @request.agent_message_count_at_followup
-          return @request.reload
-        end
-        # New message detected -- pass the already-fetched conversation through
-        if agent_status == "FINISHED" || has_status_marker?(conv)
-          handle_intake_agent_finished_with_conversation(conv)
-        end
-      else
-        if agent_status == "FINISHED"
-          handle_intake_agent_finished(client)
-        elsif check_for_new_agent_response?(client)
-          handle_intake_agent_finished(client)
-        end
-      end
-    when "execution_in_progress"
-      if agent_status == "FINISHED"
-        @request.complete_execution!
-        save_execution_from_agent
-      end
+    # Only handle execution phase transitions now
+    if @request.execution_in_progress? && agent_status == "FINISHED"
+      @request.complete_build!
+      save_execution_from_agent
     end
+
     @request.reload
   end
 
-  # Check if the agent has sent a new response since we last checked.
-  # Returns true if the latest assistant message looks like it contains
-  # a status marker (needs_clarification or clarified), indicating
-  # the agent has finished its turn and is waiting for user input.
-  def check_for_new_agent_response?(client)
-    conv = client.get_conversation(@request.current_agent_id)
-    messages = conv["messages"] || []
-
-    # If we have a message count from a recent followup, verify the
-    # conversation has actually grown before considering it a new response
-    if @request.agent_message_count_at_followup.present?
-      return false if messages.length <= @request.agent_message_count_at_followup
-    end
-
-    # Find the latest assistant message
-    last_agent_msg = messages.reverse.find { |m| m["type"] == "assistant_message" }
-    return false unless last_agent_msg
-
-    content = last_agent_msg["text"] || ""
-
-    # If the message contains a STATUS marker, the agent has completed its turn
-    PlanExtractor.detect_status(content) != :unknown
-  rescue CursorApi::Client::Error
-    false
-  end
-
-  # Check if a pre-fetched conversation contains a status marker in its last assistant message
-  def has_status_marker?(conv)
-    messages = conv["messages"] || []
-    last_agent_msg = messages.reverse.find { |m| m["type"] == "assistant_message" }
-    return false unless last_agent_msg
-
-    content = last_agent_msg["text"] || ""
-    PlanExtractor.detect_status(content) != :unknown
-  end
-
-  def handle_intake_agent_finished(client)
-    conv = client.get_conversation(@request.current_agent_id)
-    handle_intake_agent_finished_with_conversation(conv)
-  end
-
-  # Process an intake agent response using a pre-fetched conversation.
-  # This avoids redundant API calls when the conversation was already fetched
-  # (e.g. during message-count checks).
-  def handle_intake_agent_finished_with_conversation(conv)
-    last_agent_msg = (conv["messages"] || []).reverse.find { |m| m["type"] == "assistant_message" }
-    return unless last_agent_msg
-
-    content = last_agent_msg["text"]
-    detected_status = PlanExtractor.detect_status(content)
-
-    case detected_status
-    when :needs_clarification
-      @request.request_clarification! if @request.may_request_clarification?
-    when :clarified
-      save_plan_from_content(content)
-    else
-      # Fallback: if no status marker, check if plan section exists
-      if PlanExtractor.extract_plan_section(content).present?
-        save_plan_from_content(content)
-      else
-        # No plan section found, treat as needs clarification
-        @request.request_clarification! if @request.may_request_clarification?
-      end
-    end
-  end
-
-  # Extract plan content from agent response, save it, and transition to plan_ready
-  def save_plan_from_content(content)
-    plan_content = PlanExtractor.extract_plan_section(content) || content
-
-    # Avoid creating duplicate plans with the same content
-    existing = @request.latest_plan
-    unless existing && existing.content == plan_content
-      @request.plans.create!(content: plan_content)
-
-      # Extract structured data
-      extracted = PlanExtractor.new(plan_content).extract
-      @request.update!(extracted)
-    end
-
-    # Transition to plan_ready state
-    @request.clarify_intake! if @request.may_clarify_intake?
-  end
-
   def save_execution_from_agent
-    return unless @request.current_agent_id
-    # Skip if execution already exists (e.g., already saved when entering execution_review)
+    return unless @request.execution_agent_id
+    # Skip if execution already exists
     return if @request.execution.present?
 
     begin
@@ -547,7 +403,7 @@ class RequestsController < ApplicationController
       retry_delay = 3 # seconds
 
       max_retries.times do |attempt|
-        agent = client.get_agent(@request.current_agent_id)
+        agent = client.get_agent(@request.execution_agent_id)
         pr_url = agent.dig("target", "prUrl")
         summary ||= agent["summary"]
         branch_name ||= agent.dig("target", "branchName")
@@ -591,28 +447,10 @@ class RequestsController < ApplicationController
     end
   end
 
-  # Revert the status transition when a followup API call fails.
-  # Without this, the request stays in *_in_progress but no agent is working,
-  # leaving the user stuck.
-  def revert_status_on_followup_failure
-    case @request.status
-    when "intake_in_progress"
-      @request.request_clarification! if @request.may_request_clarification?
-    when "execution_in_progress"
-      # For execution, revert to execution_review if possible
-      # (revise_execution goes from execution_review -> execution_in_progress,
-      #  so the reverse would be complete_execution, but we use a direct update
-      #  since AASM may not have a reverse transition defined)
-      @request.update_column(:status, "execution_review") if @request.may_complete_execution? == false
-    end
-  rescue => e
-    Rails.logger.error "[Nova Flow] Failed to revert status after followup failure: #{e.message}"
-  end
-
   # Extract PR URL from conversation messages as a fallback
   # The agent often mentions the PR URL in its final message
   def extract_pr_url_from_conversation(client)
-    conv = client.get_conversation(@request.current_agent_id)
+    conv = client.get_conversation(@request.execution_agent_id)
     messages = conv["messages"] || []
 
     # Search through messages in reverse order (most recent first)

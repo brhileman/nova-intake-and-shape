@@ -107,7 +107,7 @@ class NovaCli < Thor
     requests.each do |r|
       puts "#{r.id}: #{r.original_input.truncate(50)}"
       puts "   Status: #{r.status}"
-      puts "   Agent: #{r.current_agent_id || 'none'}"
+      puts "   Agent: #{r.execution_agent_id || r.planning_agent_id || 'none'}"
       puts ""
     end
   end
@@ -123,11 +123,12 @@ class NovaCli < Thor
     puts "  Design input needed: #{request.requires_design_input?}"
     puts ""
 
-    if request.current_agent_id
-      puts "Agent: #{request.current_agent_id}"
+    agent_id = request.execution_agent_id || request.planning_agent_id
+    if agent_id
+      puts "Agent: #{agent_id}"
       begin
         client = CursorApi::Client.new
-        agent = client.get_agent(request.current_agent_id)
+        agent = client.get_agent(agent_id)
         puts "  Status: #{agent['status']}"
         puts "  PR URL: #{agent.dig('target', 'prUrl')}" if agent.dig("target", "prUrl")
         puts "  Summary: #{agent['summary']}" if agent["summary"]
@@ -149,14 +150,15 @@ class NovaCli < Thor
     puts "Request #{request.id} - #{request.status}"
     puts "=" * 50
 
-    unless request.current_agent_id
+    agent_id = request.execution_agent_id || request.planning_agent_id
+    unless agent_id
       puts "No agent conversation to review."
       return
     end
 
     begin
       client = CursorApi::Client.new
-      conv = client.get_conversation(request.current_agent_id)
+      conv = client.get_conversation(agent_id)
 
       puts ""
       conv["messages"].each do |msg|
@@ -172,37 +174,43 @@ class NovaCli < Thor
     end
   end
 
-  desc "approve REQUEST_ID", "Approve current phase and advance to next"
-  def approve(request_id)
+  desc "build REQUEST_ID", "Start build (launch execution agent)"
+  def build(request_id)
     request = Request.find(request_id)
 
-    case request.status
-    when "plan_ready"
-      # Save the plan from conversation before advancing
-      save_plan_from_conversation(request)
+    unless request.plan_ready?
+      puts "Cannot build from status: #{request.status}"
+      puts "Request must be in plan_ready state"
+      return
+    end
 
-      request.approve_plan!
-      request.start_execution!
-      puts "✓ Plan approved. Launching execution agent..."
+    request.start_build!
+    puts "✓ Build started. Launching execution agent..."
 
-      agent = Agents::ExecutionAgent.new(request)
-      agent.followup(agent.build_execution_transition_prompt, images: agent.design_images)
-      puts "✓ Execution agent launched"
+    agent = Agents::ExecutionAgent.new(request)
+    agent.launch(images: agent.design_images)
+    request.update!(execution_agent_id: agent.agent_id)
+    puts "✓ Execution agent launched"
+  end
 
-    when "execution_review"
-      # Save execution details before completing
-      save_execution_from_agent(request)
+  desc "complete REQUEST_ID", "Mark request as completed"
+  def complete(request_id)
+    request = Request.find(request_id)
 
-      request.approve_execution!
-      puts "✓ Execution approved. Request completed!"
-      puts ""
-      if request.execution&.pr_url
-        puts "PR URL: #{request.execution.pr_url}"
-      end
+    unless request.execution_in_progress?
+      puts "Cannot complete from status: #{request.status}"
+      puts "Request must be in execution_in_progress state"
+      return
+    end
 
-    else
-      puts "Cannot approve from status: #{request.status}"
-      puts "Request must be in plan_ready or execution_review state"
+    # Save execution details before completing
+    save_execution_from_agent(request)
+
+    request.complete_build!
+    puts "✓ Request completed!"
+    puts ""
+    if request.execution&.pr_url
+      puts "PR URL: #{request.execution.pr_url}"
     end
   end
 
@@ -219,28 +227,31 @@ class NovaCli < Thor
     )
 
     # Determine which agent class based on current phase
-    agent_class = case request.current_phase
-    when "intake" then Agents::IntakeAgent
-    when "execution" then Agents::ExecutionAgent
+    if request.in_planning_phase?
+      puts "Sending comment to planning agent..."
+      agent = Agents::PlanRefinementAgent.new(request)
+      agent.followup(message)
+    elsif request.in_execution_phase?
+      puts "Sending comment to execution agent..."
+      agent = Agents::ExecutionAgent.new(request)
+      agent.followup(message)
     else
       puts "Cannot send comment in phase: #{request.current_phase}"
       return
     end
 
-    puts "Sending comment to agent..."
-    agent = agent_class.new(request)
-    agent.followup(message)
     puts "✓ Comment sent to agent"
   end
 
   private
 
   def save_plan_from_conversation(request)
-    return unless request.current_agent_id
+    agent_id = request.planning_agent_id
+    return unless agent_id
 
     begin
       client = CursorApi::Client.new
-      conv = client.get_conversation(request.current_agent_id)
+      conv = client.get_conversation(agent_id)
 
       # Get the last agent message as the plan
       last_agent_msg = conv["messages"].reverse.find { |m| m["type"] == "assistant_message" }
@@ -254,11 +265,11 @@ class NovaCli < Thor
   end
 
   def save_execution_from_agent(request)
-    return unless request.current_agent_id
+    return unless request.execution_agent_id
 
     begin
       client = CursorApi::Client.new
-      agent = client.get_agent(request.current_agent_id)
+      agent = client.get_agent(request.execution_agent_id)
 
       request.create_execution!(
         pr_url: agent.dig("target", "prUrl"),

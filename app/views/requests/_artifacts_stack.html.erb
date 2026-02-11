@@ -2,23 +2,17 @@
 <% req = local_assigns[:request] || @request %>
 <%# 
   Artifact statuses:
-  - Plan: not_started (no plan) | drafted (plan_ready) | approved (execution phase+)
-  - Execution: not_started (no execution) | in_progress (execution exists) | completed (request completed)
+  - Plan: not_started (no plan) | drafted (plan exists)
+  - Execution: not_started (no execution) | in_progress | completed
 %>
 <%
   # Determine plan status
-  plan_status = if req.latest_plan.nil?
-    :not_started
-  elsif %w[plan_ready intake_needs_clarification intake_in_progress].include?(req.status) || req.current_phase == "intake"
-    :drafted
-  else
-    :approved
-  end
+  plan_status = req.latest_plan.present? ? :drafted : :not_started
 
   # Determine execution status
   execution_status = if req.execution.nil?
     :not_started
-  elsif %w[execution_review completed].include?(req.status)
+  elsif req.status == "completed"
     :completed
   else
     :in_progress
@@ -42,21 +36,16 @@
     <%# Execution (when complete) %>
     <% if req.execution %>
       <%= render "artifact_execution", execution: req.execution, compact: true, status: execution_status %>
-      <% if req.status == "execution_review" %>
-        <div class="rounded-lg border border-amber-700/50 bg-amber-900/30 p-2 text-center">
-          <p class="text-xs font-medium text-amber-400">Waiting for PR review</p>
-        </div>
-      <% end %>
-    <% elsif req.current_phase == "intake" %>
+    <% elsif req.status == "plan_ready" %>
       <div class="rounded-lg border border-dashed border-slate-600 p-3 text-center">
         <svg class="mx-auto h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
                 d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
         </svg>
         <p class="mt-1 text-xs font-medium text-slate-400">Execution</p>
-        <p class="text-xs text-slate-500">After plan approval</p>
+        <p class="text-xs text-slate-500">Click Build to start</p>
       </div>
-    <% elsif req.current_phase == "execution" && !req.execution %>
+    <% elsif req.status == "execution_in_progress" && !req.execution %>
       <div class="rounded-lg border border-purple-700/50 bg-purple-900/30 p-3 text-center">
         <div class="animate-pulse flex justify-center">
           <div class="h-5 w-5 rounded-full bg-purple-700"></div>

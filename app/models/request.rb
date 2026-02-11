@@ -9,6 +9,7 @@ class Request < ApplicationRecord
   has_many :plans, dependent: :destroy
   has_one :execution, dependent: :destroy
   has_one :design_guidance, dependent: :destroy
+  has_one :technical_guidance, dependent: :destroy
   has_many :comments, dependent: :destroy
   has_many :approvals, dependent: :destroy
 
@@ -25,8 +26,8 @@ class Request < ApplicationRecord
   scope :created_by_user, ->(user) { where(created_by: user) }
   scope :by_status, ->(status) { where(status: status) }
   scope :by_phase, ->(phase) { where("status LIKE ?", "#{phase}%") }
-  scope :in_review, -> { where("status IN (?) OR status LIKE '%_review'", ["plan_ready"]) }
-  scope :ordered_by_position, -> { order(Arel.sql("position IS NULL, position ASC, created_at DESC")) }
+  scope :in_review, -> { where(status: "plan_ready") }
+  scope :ordered_by_position, -> { order(created_at: :desc) }
   scope :in_group, ->(group) { where(request_group: group) }
   scope :ungrouped, -> { where(request_group_id: nil) }
 
@@ -41,133 +42,54 @@ class Request < ApplicationRecord
   }
 
   # Scope for requests that need action from a specific user (based on role AND project assignment)
+  # Simplified now that approvals are removed - just shows requests in planning phase
   scope :needs_action_from, ->(user) {
     return none unless user
 
-    # First, filter to projects where this user is assigned to the matching role
-    base_scope = case user.role
-    when "pm"
-      joins(:project).where(projects: { pm_id: user.id })
-    when "dev"
-      joins(:project).where(projects: { dev_id: user.id })
-    when "designer"
-      joins(:project).where(projects: { designer_id: user.id })
-    else
-      none
-    end
-
-    case user.role
-    when "pm"
-      # PM needs to approve plans (plan_ready, if not yet approved by PM)
-      base_scope
-        .left_joins(:approvals)
-        .where(status: ["plan_ready"])
-        .where.not(
-          id: Approval.where(phase: "plan")
-                      .joins(:user)
-                      .where(users: { role: :pm })
-                      .select(:request_id)
-        )
-        .distinct
-    when "dev"
-      # Dev needs to approve: plans (plan_ready, if not yet approved by dev) and execution (execution_review)
-      base_scope
-        .left_joins(:approvals)
-        .where(status: ["plan_ready", "execution_review"])
-        .where.not(
-          id: Approval.where(phase: ["plan", "execution"])
-                      .joins(:user)
-                      .where(users: { role: :dev })
-                      .select(:request_id)
-        )
-        .distinct
-    when "designer"
-      # Designers don't have approval responsibilities, but might see requests needing design input
-      base_scope.where(requires_design_input: true, status: ["plan_ready"])
-    else
-      none
-    end
+    # Filter to projects where this user is assigned
+    for_team_member(user).where(status: "plan_ready")
   }
 
   # Auto-assign request number and position on creation (scoped to project)
   before_create :assign_request_number
   before_create :assign_position
 
+  # Simplified state machine - requests are created with plan_ready status
+  # (intake is now ephemeral and happens before request creation)
   aasm column: :status do
-    state :intake_pending, initial: true
-    state :intake_in_progress
-    state :intake_needs_clarification  # Agent asked clarifying questions
-    state :plan_ready                  # Plan extracted, ready for approval
-    state :execution_pending
-    state :execution_in_progress
-    state :execution_review
-    state :completed
+    state :plan_ready, initial: true    # Request created with plan
+    state :execution_in_progress        # Build is running
+    state :completed                    # PR created, done
 
-    # Intake flow
-    event :start_intake do
-      transitions from: :intake_pending, to: :intake_in_progress
+    # Start build - transitions from planning to execution
+    event :start_build do
+      transitions from: :plan_ready, to: :execution_in_progress
     end
 
-    event :request_clarification do
-      transitions from: :intake_in_progress, to: :intake_needs_clarification
-    end
-
-    event :resume_intake do
-      # User responded to clarification questions, agent resumes work
-      transitions from: :intake_needs_clarification, to: :intake_in_progress
-    end
-
-    event :clarify_intake do
-      # Agent produced a plan
-      transitions from: :intake_in_progress, to: :plan_ready
-      transitions from: :intake_needs_clarification, to: :plan_ready
-    end
-
-    event :approve_plan do
-      transitions from: :plan_ready, to: :execution_pending
-    end
-
-    event :revise_plan do
-      # Send back to agent for revision
-      transitions from: :plan_ready, to: :intake_in_progress
-    end
-
-    # Execution flow
-    event :start_execution do
-      transitions from: :execution_pending, to: :execution_in_progress
-    end
-
-    event :complete_execution do
-      transitions from: :execution_in_progress, to: :execution_review
-    end
-
-    event :approve_execution do
-      transitions from: :execution_review, to: :completed
-    end
-
-    event :revise_execution do
-      transitions from: :execution_review, to: :execution_in_progress
+    # Complete build - execution agent finished
+    event :complete_build do
+      transitions from: :execution_in_progress, to: :completed
     end
   end
 
   # Helper to get current phase
   def current_phase
-    case status.to_s
-    when "plan_ready"
-      "intake"
-    else
-      status.to_s.split("_").first
-    end
+    in_planning_phase? ? "planning" : "execution"
   end
 
   # Check if request is awaiting user input (for polling logic)
   def awaiting_user_input?
-    %w[intake_needs_clarification plan_ready execution_review completed].include?(status.to_s)
+    plan_ready? || completed?
   end
 
-  # Check if request is in a review/approval state
-  def in_review_state?
-    %w[plan_ready execution_review].include?(status.to_s)
+  # Check if request is in the planning phase (for simplified UI)
+  def in_planning_phase?
+    plan_ready?
+  end
+
+  # Check if request is in the execution phase (for simplified UI)
+  def in_execution_phase?
+    execution_in_progress? || completed?
   end
 
   # Display title: prefer generated_title, fall back to original_input
@@ -190,81 +112,6 @@ class Request < ApplicationRecord
   def user_on_team?(user)
     return false unless user
     [project.pm, project.designer, project.dev].compact.include?(user)
-  end
-
-  # ========================================
-  # Role-based approval methods
-  # ========================================
-
-  # Plan approval: requires BOTH PM and Dev
-  def plan_approved?
-    pm_approved = approvals.for_plan.joins(:user).where(users: { role: :pm }).exists?
-    dev_approved = approvals.for_plan.joins(:user).where(users: { role: :dev }).exists?
-    pm_approved && dev_approved
-  end
-
-  def plan_approval_status
-    pm_approval = approvals.for_plan.joins(:user).where(users: { role: :pm }).first
-    dev_approval = approvals.for_plan.joins(:user).where(users: { role: :dev }).first
-    { pm: pm_approval, dev: dev_approval }
-  end
-
-  # Execution approval: requires Dev only
-  def execution_approved?
-    approvals.for_execution.joins(:user).where(users: { role: :dev }).exists?
-  end
-
-  def execution_approval_status
-    dev_approved = approvals.for_execution.joins(:user).where(users: { role: :dev }).first
-    { dev: dev_approved }
-  end
-
-  # Check if a user can approve the current phase
-  def can_user_approve?(user)
-    return false unless user
-    return false unless in_review_state?
-
-    case status
-    when "plan_ready"
-      user.can_approve_plan? && !user_has_approved_phase?(user, "plan")
-    when "execution_review"
-      user.can_approve_execution? && !user_has_approved_phase?(user, "execution")
-    else
-      false
-    end
-  end
-
-  # Check if user has already approved the current phase
-  def user_has_approved_phase?(user, phase)
-    approvals.where(user: user, phase: phase).exists?
-  end
-
-  # Record an approval from a user
-  def record_approval(user)
-    phase = current_approval_phase
-    return nil unless phase
-
-    approvals.create(user: user, phase: phase)
-  end
-
-  # Get the current phase that needs approval
-  def current_approval_phase
-    case status
-    when "plan_ready" then "plan"
-    when "execution_review" then "execution"
-    end
-  end
-
-  # Check if all required approvals are present for the current phase
-  def all_approvals_present?
-    case status
-    when "plan_ready"
-      plan_approved?
-    when "execution_review"
-      execution_approved?
-    else
-      false
-    end
   end
 
   private

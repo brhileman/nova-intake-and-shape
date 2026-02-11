@@ -67,8 +67,11 @@
     <div class="pt-2 mt-2 border-t border-slate-700">
       <p class="text-xs text-slate-500 font-mono">
         Status: <%= req.status %><br>
-        <% if req.current_agent_id %>
-          Agent: <%= req.current_agent_id.truncate(16) %>
+        <% if req.execution_agent_id %>
+          Exec Agent: <%= req.execution_agent_id.truncate(16) %><br>
+        <% end %>
+        <% if req.planning_agent_id %>
+          Plan Agent: <%= req.planning_agent_id.truncate(16) %>
         <% end %>
       </p>
     </div>

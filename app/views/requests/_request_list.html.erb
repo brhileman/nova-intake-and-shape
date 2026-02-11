@@ -1,0 +1,29 @@
+<%# List of requests in the project for navigation %>
+<div class="py-2">
+  <% project.requests.ordered_by_position.each do |req| %>
+    <% is_current = req.id == current_request.id %>
+    <%= link_to request_path(req), 
+        class: "block px-3 py-2 text-sm transition-colors #{is_current ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'}" do %>
+      <div class="flex items-center gap-2">
+        <%# Status indicator dot %>
+        <span class="w-2 h-2 rounded-full flex-shrink-0 <%= req.in_execution_phase? ? 'bg-cyan-400' : 'bg-slate-500' %>"></span>
+        
+        <div class="min-w-0 flex-1">
+          <%# Request number %>
+          <span class="text-xs text-slate-500 font-mono">REQ-<%= req.request_number %></span>
+          
+          <%# Request title (truncated) %>
+          <div class="truncate text-xs mt-0.5" title="<%= req.display_title %>">
+            <%= req.display_title.truncate(30) %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+  
+  <% if project.requests.empty? %>
+    <div class="px-3 py-4 text-sm text-slate-500 text-center">
+      No requests yet
+    </div>
+  <% end %>
+</div>

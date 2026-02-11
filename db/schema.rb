@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_10_000006) do
   create_schema "extensions"
 
   # These are extensions that must be enabled in order to support this database
@@ -95,7 +95,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
 
   create_table "public.design_guidances", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.string "figma_url"
     t.datetime "provided_at"
     t.string "provided_by"
     t.bigint "request_id", null: false
@@ -114,6 +113,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.text "summary"
     t.datetime "updated_at", null: false
     t.index ["request_id"], name: "index_executions_on_request_id"
+  end
+
+  create_table "public.figma_links", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.bigint "design_guidance_id", null: false
+    t.integer "position", default: 0
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.index ["design_guidance_id", "position"], name: "index_figma_links_on_design_guidance_id_and_position"
+    t.index ["design_guidance_id"], name: "index_figma_links_on_design_guidance_id"
   end
 
   create_table "public.plans", force: :cascade do |t|
@@ -161,11 +171,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.integer "agent_message_count_at_followup"
     t.datetime "created_at", null: false
     t.bigint "created_by_id"
-    t.string "current_agent_id"
     t.text "dependencies"
     t.decimal "estimate_days"
+    t.string "execution_agent_id"
     t.string "generated_title"
     t.text "original_input", null: false
+    t.string "planning_agent_id"
     t.integer "position"
     t.integer "priority"
     t.bigint "project_id", null: false
@@ -173,7 +184,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.integer "request_number"
     t.integer "request_type", default: 0
     t.boolean "requires_design_input", default: false
-    t.string "status", default: "intake_pending"
+    t.string "status", default: "plan_ready"
     t.text "summary"
     t.datetime "updated_at", null: false
     t.text "user_story_action"
@@ -186,6 +197,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.index ["request_group_id"], name: "index_requests_on_request_group_id"
     t.index ["request_type"], name: "index_requests_on_request_type"
     t.index ["status"], name: "index_requests_on_status"
+  end
+
+  create_table "public.technical_guidances", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "notes"
+    t.bigint "request_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["request_id"], name: "index_technical_guidances_on_request_id", unique: true
+    t.index ["user_id"], name: "index_technical_guidances_on_user_id"
   end
 
   create_table "public.users", force: :cascade do |t|
@@ -209,6 +230,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   add_foreign_key "public.design_guidances", "public.requests"
   add_foreign_key "public.design_guidances", "public.users"
   add_foreign_key "public.executions", "public.requests"
+  add_foreign_key "public.figma_links", "public.design_guidances"
   add_foreign_key "public.plans", "public.requests"
   add_foreign_key "public.plans", "public.users", column: "created_by_id"
   add_foreign_key "public.projects", "public.users", column: "designer_id"
@@ -220,5 +242,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   add_foreign_key "public.requests", "public.projects"
   add_foreign_key "public.requests", "public.request_groups"
   add_foreign_key "public.requests", "public.users", column: "created_by_id"
+  add_foreign_key "public.technical_guidances", "public.requests"
+  add_foreign_key "public.technical_guidances", "public.users"
 
 end

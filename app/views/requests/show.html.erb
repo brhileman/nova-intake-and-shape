@@ -11,20 +11,26 @@
      data-polling-request-id-value="<%= @request.id %>"
      data-polling-interval-value="10000">
   
-  <%# Left Column - Request Details (metadata & team) %>
-  <div class="w-[226px] border-r border-slate-700 bg-slate-800 flex-shrink-0">
-    <%= render "project_selector", request: @request %>
+  <%# Column 1: Breadcrumb + Request List %>
+  <div class="w-[200px] border-r border-slate-700 bg-slate-800 flex-shrink-0 flex flex-col">
+    <%# Breadcrumb at top %>
+    <%= render "breadcrumb", request: @request %>
+    
+    <%# Request list below (scrollable) %>
+    <div class="flex-1 overflow-y-auto">
+      <%= render "request_list", project: @request.project, current_request: @request %>
+    </div>
   </div>
   
-  <%# Middle Column - Properties Panel (increased width by 75px) %>
-  <div class="w-[385px] border-r border-slate-700 bg-slate-800 flex-shrink-0 overflow-y-auto">
-    <%= render "properties_panel", request: @request %>
+  <%# Column 2: Metadata + Actions %>
+  <div class="w-[280px] border-r border-slate-700 bg-slate-800 flex-shrink-0 overflow-y-auto">
+    <%= render "metadata_panel", request: @request, active_panel: @active_panel %>
   </div>
   
-  <%# Right Column - Agent Chat (main area) %>
+  <%# Column 3: Contextual Content Panel %>
   <div class="flex-1 flex flex-col bg-slate-900 min-w-0">
-    <div id="chat_thread_<%= @request.id %>" class="flex-1 flex flex-col min-h-0">
-      <%= render "chat_thread", request: @request, conversation: @conversation %>
+    <div id="content_panel_<%= @request.id %>" class="flex-1 flex flex-col min-h-0 overflow-y-auto">
+      <%= render "content_panel", request: @request, active_panel: @active_panel %>
     </div>
   </div>
 </div>

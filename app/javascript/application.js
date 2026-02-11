@@ -1,6 +1,7 @@
 // Configure your import map in config/importmap.rb. Read more: https://github.com/rails/importmap-rails
 import "@hotwired/turbo-rails"
 import "controllers"
+import { createLoadingTextRotator } from "utils/loading_messages"
 
 // Disable Turbo Drive link prefetching on hover
 // (prevents unnecessary server requests when simply mousing over links)
@@ -10,22 +11,32 @@ Turbo.config.drive.prefetchOnLinkHover = false
 ;(() => {
   let showTimeout
   let isShowing = false
+  let textRotator = null
 
   const getOverlay = () => document.getElementById("page-loading-overlay")
   const getTextEl = () => getOverlay()?.querySelector(".text")
 
-  const showOverlay = (text = "Loading...") => {
+  const showOverlay = () => {
     const overlay = getOverlay()
-    const textEl = getTextEl()
     if (!overlay) return
     
-    if (textEl) textEl.textContent = text
     overlay.classList.add("active")
     isShowing = true
+    
+    // Start rotating loading text
+    const textEl = getTextEl()
+    if (textEl) {
+      textRotator = createLoadingTextRotator(textEl)
+      textRotator.start()
+    }
   }
 
   const hideOverlay = () => {
     clearTimeout(showTimeout)
+    if (textRotator) {
+      textRotator.stop()
+      textRotator = null
+    }
     const overlay = getOverlay()
     if (overlay) overlay.classList.remove("active")
     isShowing = false
@@ -33,7 +44,7 @@ Turbo.config.drive.prefetchOnLinkHover = false
 
   // Show overlay on Turbo navigation start (with slight delay to avoid flash on fast loads)
   document.addEventListener("turbo:before-visit", () => {
-    showTimeout = setTimeout(() => showOverlay("Loading..."), 100)
+    showTimeout = setTimeout(() => showOverlay(), 100)
   })
 
   // Show overlay on form submissions that will redirect
@@ -44,7 +55,7 @@ Turbo.config.drive.prefetchOnLinkHover = false
                           form.querySelector('[data-turbo-stream="true"]')
     
     if (!acceptsStream) {
-      showTimeout = setTimeout(() => showOverlay("Submitting..."), 100)
+      showTimeout = setTimeout(() => showOverlay(), 100)
     }
   })
 

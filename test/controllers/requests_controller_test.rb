@@ -44,44 +44,34 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
   # ===================
 
   test "GET /requests/:id shows request details" do
-    request = create(:request, :intake_in_progress, project: @project)
+    request = create(:request, :plan_ready, project: @project)
 
     get request_path(request)
 
     assert_response :success
-    assert_select "h3", text: /Intake Conversation/
-  end
-
-  test "GET /requests/:id shows artifacts when available" do
-    request = create(:request, :planning_review, project: @project)
-
-    get request_path(request)
-
-    assert_response :success
-    assert_select "h3", text: "Brief"
   end
 
   # ===================
   # Create Tests
   # ===================
 
-  test "GET /requests/new shows form" do
+  test "GET /requests/new shows intake form" do
     get new_request_path
 
     assert_response :success
-    assert_select "textarea[name='request[original_input]']"
   end
 
-  test "POST /requests creates request and launches intake agent" do
+  test "POST /requests creates request with plan" do
     assert_difference("Request.count", 1) do
       post requests_path, params: {
-        request: { original_input: "Add dark mode toggle" }
+        request: { original_input: "Add dark mode toggle" },
+        plan_content: "## Plan\n\n1. Add toggle component"
       }
     end
 
     request = Request.last
-    assert_equal "intake_in_progress", request.status
-    assert_not_nil request.current_agent_id
+    assert_equal "plan_ready", request.status
+    assert request.latest_plan.present?
     assert_redirected_to request_path(request)
   end
 
@@ -96,47 +86,40 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
   end
 
   # ===================
-  # Approve Tests
+  # Build Tests
   # ===================
 
-  test "POST /requests/:id/approve from intake_review advances to planning" do
-    request = create(:request, :intake_review, project: @project)
+  test "POST /requests/:id/build starts execution" do
+    request = create(:request, :plan_ready, project: @project)
 
-    post approve_request_path(request)
+    post build_request_path(request)
 
     request.reload
-    assert request.status.start_with?("planning")
-    assert_redirected_to request_path(request)
+    assert_equal "execution_in_progress", request.status
+    assert_not_nil request.execution_agent_id
   end
 
-  test "POST /requests/:id/approve from planning_review advances to execution" do
-    request = create(:request, :planning_review, project: @project)
+  test "POST /requests/:id/build fails if not plan_ready" do
+    request = create(:request, :execution_in_progress, project: @project)
 
-    post approve_request_path(request)
+    post build_request_path(request)
 
     request.reload
-    assert request.status.start_with?("execution")
-    assert_redirected_to request_path(request)
+    assert_equal "execution_in_progress", request.status
   end
 
-  test "POST /requests/:id/approve from execution_review completes request" do
-    request = create(:request, :execution_review, project: @project)
+  # ===================
+  # Update Plan Tests
+  # ===================
 
-    post approve_request_path(request)
+  test "PATCH /requests/:id/update_plan saves plan content" do
+    request = create(:request, :plan_ready, project: @project)
 
+    patch update_plan_request_path(request), params: { plan_content: "Updated plan content" }
+
+    assert_response :success
     request.reload
-    assert_equal "completed", request.status
-    assert_redirected_to request_path(request)
-  end
-
-  test "POST /requests/:id/approve from in_progress marks phase complete" do
-    request = create(:request, :intake_in_progress, project: @project)
-
-    post approve_request_path(request)
-
-    request.reload
-    assert_equal "intake_review", request.status
-    assert_redirected_to request_path(request)
+    assert_equal "Updated plan content", request.latest_plan.content
   end
 
   # ===================
@@ -144,7 +127,8 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
   # ===================
 
   test "POST /requests/:id/comment creates comment and sends to agent" do
-    request = create(:request, :intake_review, project: @project)
+    request = create(:request, :plan_ready, project: @project)
+    request.update!(planning_agent_id: "test-agent-123")
 
     assert_difference("Comment.count", 1) do
       post comment_request_path(request), params: { message: "Please clarify" }
@@ -153,15 +137,15 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
     comment = Comment.last
     assert_equal "user", comment.author_type
     assert_equal "Please clarify", comment.content
-    assert_equal "intake", comment.phase
+    assert_equal "planning", comment.phase
   end
 
   # ===================
-  # Refresh Tests
+  # Poll Tests
   # ===================
 
   test "GET /requests/:id/poll returns turbo stream" do
-    request = create(:request, :intake_in_progress, project: @project)
+    request = create(:request, :execution_in_progress, project: @project)
 
     get poll_request_path(request), headers: {
       "Accept" => "text/vnd.turbo-stream.html"

@@ -26,7 +26,8 @@ module Agents
     # Used with followup() to continue the same agent
     def build_execution_transition_prompt
       latest_plan = @request.latest_plan
-      guidance = @request.design_guidance
+      design_guidance = @request.design_guidance
+      technical_guidance = @request.technical_guidance
 
       prompt = <<~PROMPT
         The plan has been approved. Now transition to the execution phase.
@@ -41,16 +42,35 @@ module Agents
       PROMPT
 
       # Include design guidance if provided
-      if guidance&.provided?
+      if design_guidance&.provided?
         prompt += <<~PROMPT
 
           ## Design Guidance
-          #{guidance.specifications.presence || "See attached design screenshots for reference."}
+          #{design_guidance.specifications.presence || "See attached design screenshots for reference."}
         PROMPT
 
-        if guidance.images.attached?
+        # Include Figma links if any
+        if design_guidance.figma_links.any?
+          prompt += "\n\n### Figma Links\n"
+          design_guidance.figma_links.each do |link|
+            prompt += "- #{link.url}"
+            prompt += " - #{link.description}" if link.description.present?
+            prompt += "\n"
+          end
+        end
+
+        if design_guidance.images.attached?
           prompt += "\n\nDesign screenshots are attached to this message. Use them as visual reference for the UI implementation."
         end
+      end
+
+      # Include technical guidance if provided
+      if technical_guidance&.provided?
+        prompt += <<~PROMPT
+
+          ## Technical Guidance
+          #{technical_guidance.notes}
+        PROMPT
       end
 
       prompt += "\n\nImplement the plan now. Commit and push your changes."
@@ -76,6 +96,8 @@ module Agents
 
     def build_prompt
       latest_plan = @request.latest_plan
+      design_guidance = @request.design_guidance
+      technical_guidance = @request.technical_guidance
 
       prompt = <<~PROMPT
         #{INSTRUCTIONS}
@@ -86,6 +108,34 @@ module Agents
         ## Approved Plan
         #{latest_plan&.content || "No plan available"}
       PROMPT
+
+      # Include design guidance if provided
+      if design_guidance&.provided?
+        prompt += <<~PROMPT
+
+          ## Design Guidance
+          #{design_guidance.specifications.presence || "See attached design screenshots for reference."}
+        PROMPT
+
+        # Include Figma links if any
+        if design_guidance.figma_links.any?
+          prompt += "\n\n### Figma Links\n"
+          design_guidance.figma_links.each do |link|
+            prompt += "- #{link.url}"
+            prompt += " - #{link.description}" if link.description.present?
+            prompt += "\n"
+          end
+        end
+      end
+
+      # Include technical guidance if provided
+      if technical_guidance&.provided?
+        prompt += <<~PROMPT
+
+          ## Technical Guidance
+          #{technical_guidance.notes}
+        PROMPT
+      end
 
       if conversation_history.present?
         prompt += <<~PROMPT

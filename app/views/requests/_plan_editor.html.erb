@@ -1,0 +1,98 @@
+<%# Plan editor with auto-save functionality and preview mode %>
+<% locked = request.in_execution_phase? %>
+
+<div class="flex-1 flex flex-col h-full overflow-hidden" 
+     data-controller="plan-editor"
+     data-plan-editor-url-value="<%= update_plan_request_path(request) %>"
+     data-plan-editor-last-saved-value="<%= request.latest_plan&.content %>">
+  
+  <%# Locked banner when in execution phase %>
+  <% if locked %>
+    <div class="flex-shrink-0 mb-4 flex items-center gap-2 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg">
+      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+      <span class="text-sm text-slate-400">Plan locked — Build has started</span>
+    </div>
+  <% end %>
+  
+  <%# Header - fixed at top %>
+  <div class="flex-shrink-0 flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-white">Request Plan</h2>
+    <div class="flex items-center gap-3">
+      <span data-plan-editor-target="status" class="text-xs text-slate-400"></span>
+      <%# Edit/Preview toggle - only show when not locked %>
+      <% unless locked %>
+        <div class="flex bg-slate-800 rounded-md p-0.5">
+          <button type="button" 
+                  data-plan-editor-target="previewBtn"
+                  data-action="click->plan-editor#showPreview"
+                  class="px-3 py-1 text-xs font-medium rounded transition-colors bg-slate-700 text-white">
+            Preview
+          </button>
+          <button type="button"
+                  data-plan-editor-target="editBtn" 
+                  data-action="click->plan-editor#showEdit"
+                  class="px-3 py-1 text-xs font-medium rounded transition-colors text-slate-400 hover:text-white">
+            Edit
+          </button>
+        </div>
+      <% end %>
+    </div>
+  </div>
+  
+  <%# Plan content - scrollable area %>
+  <div class="flex-1 min-h-0 overflow-y-auto mb-4">
+    <%# Edit mode (textarea) - hidden by default, completely hidden when locked %>
+    <% unless locked %>
+      <div data-plan-editor-target="editMode" class="hidden h-full">
+        <textarea 
+          data-plan-editor-target="textarea"
+          data-action="input->plan-editor#contentChanged"
+          class="w-full h-full min-h-[300px] p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+          placeholder="Plan content will appear here..."><%= request.latest_plan&.content %></textarea>
+      </div>
+    <% end %>
+    
+    <%# Preview mode (rendered markdown) - shown by default, always shown when locked %>
+    <div data-plan-editor-target="previewMode" class="h-full">
+      <div data-plan-editor-target="previewContent" 
+           class="prose prose-sm prose-invert max-w-none p-4 bg-slate-800 border border-slate-700 rounded-lg
+                  prose-headings:text-slate-100 prose-h1:text-xl prose-h1:font-bold prose-h1:border-b prose-h1:border-slate-700 prose-h1:pb-2 prose-h1:mb-4
+                  prose-h2:text-lg prose-h2:font-semibold prose-h2:border-b prose-h2:border-slate-700 prose-h2:pb-2 prose-h2:mt-6 prose-h2:mb-3
+                  prose-h3:text-base prose-h3:font-semibold prose-h3:mt-4 prose-h3:mb-2
+                  prose-p:text-slate-300 prose-p:my-2
+                  prose-strong:text-slate-100 prose-strong:font-semibold
+                  prose-code:text-cyan-400 prose-code:bg-slate-900 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:before:content-none prose-code:after:content-none
+                  prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700
+                  prose-li:text-slate-300 prose-li:my-1
+                  prose-ul:my-2 prose-ol:my-2
+                  prose-hr:border-slate-700">
+        <% if request.latest_plan&.content.present? %>
+          <%= render_markdown(request.latest_plan.content) %>
+        <% else %>
+          <p class="text-slate-500 italic">No plan content yet.</p>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  
+  <%# Agent prompt section - fixed at bottom, only for planning phase %>
+  <% if request.plan_ready? %>
+    <div class="flex-shrink-0 border-t border-slate-700 pt-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-medium text-slate-300">Chat with agent to update plan</h3>
+      </div>
+      
+      <%= form_with url: comment_request_path(request), method: :post, local: false, 
+          data: { turbo_stream: true },
+          class: "flex gap-2" do |f| %>
+        <%= f.text_field :message, 
+            placeholder: "Ask the agent to modify the plan...",
+            class: "flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent" %>
+        <%= f.submit "Send",
+            class: "px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md font-medium text-sm transition-colors cursor-pointer" %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

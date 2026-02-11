@@ -6,12 +6,12 @@
   <div class="flex-1 overflow-y-auto p-5 space-y-4" data-chat-target="messages">
     <% if conv.empty? %>
       <div class="flex items-center justify-center h-full">
-        <div class="text-center">
+        <div class="text-center" data-controller="loading-text">
           <svg class="mx-auto h-10 w-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
           <p class="mt-3 text-sm text-slate-400">No messages yet</p>
-          <p class="text-xs text-slate-500">Waiting for agent response...</p>
+          <p class="text-xs text-slate-500 min-w-[200px]" data-loading-text-target="text">Waiting for agent response...</p>
         </div>
       </div>
     <% else %>
@@ -23,82 +23,7 @@
 
   <%# Bottom section - Action CTA and/or Message Input %>
   <div class="border-t border-slate-700 bg-slate-900">
-    <%# Execution Review CTA - shown when in execution_review state %>
-    <%# Note: Brief and Plan approvals are now in their respective artifact modals %>
-    <% if req.status == "execution_review" %>
-      <div id="chat_approval_cta_<%= req.id %>" class="px-5 py-3 border-b border-slate-700">
-        <% 
-          cta_text = "Mark Complete"
-          cta_helper = "This will finalize the request"
-          required_roles = [["Dev", :dev]]
-          approval_status = req.execution_approval_status
-          can_approve = req.can_user_approve?(current_user)
-        %>
-        
-        <div class="space-y-3">
-          <%# Approval status row %>
-          <div class="flex items-center gap-4">
-            <p class="text-sm font-medium text-slate-300">Approvals Required:</p>
-            <div class="flex items-center gap-3">
-              <% required_roles.each do |role_label, role_key| %>
-                <% approval = approval_status[role_key] %>
-                <div class="flex items-center gap-1.5">
-                  <% if approval %>
-                    <%# Approved - green check %>
-                    <svg class="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
-                    </svg>
-                    <span class="text-xs text-emerald-400 font-medium"><%= role_label %></span>
-                    <span class="text-xs text-slate-500">(<%= approval.user.name %>)</span>
-                  <% else %>
-                    <%# Pending - gray circle %>
-                    <svg class="h-4 w-4 text-slate-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd" />
-                    </svg>
-                    <span class="text-xs text-slate-400"><%= role_label %></span>
-                    <span class="text-xs text-slate-500">(pending)</span>
-                  <% end %>
-                </div>
-              <% end %>
-            </div>
-          </div>
-          
-          <%# Action row %>
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex-1 min-w-0">
-              <% if can_approve %>
-                <p class="text-xs text-slate-400"><%= cta_helper %></p>
-              <% elsif current_user %>
-                <% phase = req.current_approval_phase %>
-                <% if req.user_has_approved_phase?(current_user, phase) %>
-                  <p class="text-xs text-emerald-400">You have already approved this <%= phase %>.</p>
-                <% else %>
-                  <p class="text-xs text-amber-400">Your role (<%= current_user.role.upcase %>) cannot approve this phase.</p>
-                <% end %>
-              <% end %>
-            </div>
-            <% if can_approve %>
-              <%= button_to approve_request_path(req), 
-                  method: :post,
-                  data: { turbo_stream: true },
-                  class: "shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors inline-flex items-center gap-1.5" do %>
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                <%= cta_text %>
-              <% end %>
-            <% else %>
-              <div class="shrink-0 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-slate-500 inline-flex items-center gap-1.5 cursor-not-allowed">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                <%= cta_text %>
-              </div>
-            <% end %>
-          </div>
-        </div>
-      </div>
-    <% elsif req.status == "completed" %>
+    <% if req.status == "completed" %>
       <div class="px-5 py-3 bg-emerald-900/30">
         <div class="flex items-center gap-2">
           <svg class="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
