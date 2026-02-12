@@ -28,8 +28,6 @@ class IntakeController < ApplicationController
         success: true,
         agent_id: agent.agent_id
       }
-    rescue Agents::EphemeralIntakeAgent::ProjectNotConfiguredError => e
-      render json: { success: false, error: e.message }, status: :unprocessable_entity
     rescue StandardError => e
       Rails.logger.error "[Intake] Failed to launch agent: #{e.message}"
       render json: { success: false, error: "Failed to start intake process. Please try again." }, status: :internal_server_error

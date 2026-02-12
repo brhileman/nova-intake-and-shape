@@ -1,21 +1,21 @@
 <div class="mb-6">
   <h1 class="text-2xl font-bold text-slate-100">Home</h1>
-  <p class="text-slate-400 mt-1">Requests needing your attention across all projects</p>
+  <p class="text-slate-400 mt-1">Select a project to create a new intake request</p>
 </div>
 
 <%# Project carousel selector %>
 <%= render "shared/project_carousel", projects: @projects %>
 
-<%# Cross-project requests table %>
-<h2 class="text-lg font-semibold text-slate-100 mb-4">Needs my action</h2>
+<%# Recent shaped tasks %>
+<h2 class="text-lg font-semibold text-slate-100 mb-4">Recent Shaped Tasks</h2>
 
-<% if @requests.empty? %>
+<% if @recent_requests.empty? %>
   <div class="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
     <svg class="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
-    <h3 class="mt-2 text-sm font-semibold text-slate-100">All caught up!</h3>
-    <p class="mt-1 text-sm text-slate-400">No requests need your attention right now.</p>
+    <h3 class="mt-2 text-sm font-semibold text-slate-100">No shaped tasks yet</h3>
+    <p class="mt-1 text-sm text-slate-400">Select a project above and create your first intake request.</p>
   </div>
 <% else %>
   <div class="bg-slate-800 rounded-lg border border-slate-700 shadow-sm overflow-hidden">
@@ -26,22 +26,13 @@
             Request
           </th>
           <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Project
-          </th>
-          <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             Type
           </th>
           <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Date Requested
+            Date
           </th>
           <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Stage
-          </th>
-          <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Agent Status
-          </th>
-          <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Pending
+            Asana
           </th>
           <th scope="col" class="relative py-3 pl-3 pr-4">
             <span class="sr-only">View</span>
@@ -49,8 +40,8 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-700/50 bg-slate-800">
-        <% @requests.each do |request| %>
-          <%= render "requests/request_row", request: request, show_project: true %>
+        <% @recent_requests.each do |request| %>
+          <%= render "requests/request_row", request: request %>
         <% end %>
       </tbody>
     </table>

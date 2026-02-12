@@ -1,26 +1,5 @@
-<%# Table row for request - Asana-inspired design (dark mode) %>
-<%# Optional: pass show_project: true to display project column (for cross-project views) %>
-<%# Optional: pass show_drag_handle: true to display drag handle for reordering %>
+<%# Table row for shaped task - simplified for intake & shape tool %>
 <%
-  show_project_column = local_assigns[:show_project] || false
-  show_drag_handle = local_assigns[:show_drag_handle] || false
-  needs_action = request.status == "plan_ready"
-  
-  # Determine stage from status
-  stage = case request.current_phase
-  when "planning" then "Planning"
-  when "execution" then "Coding"
-  else "Complete"
-  end
-  
-  # Stage colors - dark mode
-  stage_color = case request.current_phase
-  when "planning" then "bg-purple-900/50 text-purple-300"
-  when "execution" then "bg-amber-900/50 text-amber-300"
-  else "bg-emerald-900/50 text-emerald-300"
-  end
-  
-  # Request type badge color - dark mode
   type_color = case request.request_type
   when "new_feature" then "bg-emerald-900/50 text-emerald-300"
   when "update" then "bg-blue-900/50 text-blue-300"
@@ -36,149 +15,71 @@
   when "chore" then "Chore"
   else nil
   end
-  
-  # Agent running status - check if status is *_in_progress (not just if agent_id exists)
-  agent_running = request.status.end_with?("_in_progress")
 %>
 
-<%= turbo_frame_tag dom_id(request) do %>
-  <tr id="request_row_<%= request.id %>"
-      data-request-id="<%= request.id %>"
-      class="group hover:bg-slate-700/50 transition-colors <%= 'bg-[#00b4d8]/10' if needs_action %>">
-    <%# Request title column %>
-    <td class="py-3 pl-4 pr-3">
-      <div class="flex items-center gap-2">
-        <% if show_drag_handle %>
-          <div class="drag-handle cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 transition-colors opacity-0 group-hover:opacity-100">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
-            </svg>
-          </div>
-        <% end %>
-        <%= link_to request_path(request), data: { turbo_frame: "_top" }, class: "block flex-1" do %>
-          <div class="flex items-center gap-3">
-            <%# Status indicator dot %>
-            <div class="flex-shrink-0">
-              <% if needs_action %>
-                <span class="relative flex h-2.5 w-2.5">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00b4d8] opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00b4d8]"></span>
-                </span>
-              <% elsif request.status == "completed" %>
-                <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-              <% else %>
-                <span class="flex h-2.5 w-2.5 rounded-full bg-slate-500"></span>
-              <% end %>
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-slate-100 truncate group-hover:text-[#00b4d8] transition-colors">
-                <% if request.request_number %>
-                  <span class="text-slate-400 font-normal">REQ-<%= request.request_number %>:</span>
-                <% end %>
-                <%= request.display_title.truncate(50) %>
-              </p>
-            </div>
-          </div>
-        <% end %>
-      </div>
-    </td>
-    
-    <%# Group column %>
-    <td class="px-3 py-3 whitespace-nowrap">
-      <% if request.request_group.present? %>
-        <span class="inline-flex items-center gap-1 rounded-md bg-purple-900/50 px-2 py-1 text-xs font-medium text-purple-300">
-          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-          <%= request.request_group.name.truncate(20) %>
-        </span>
-      <% else %>
-        <span class="text-slate-500 text-sm">—</span>
-      <% end %>
-    </td>
-
-    <%# Project column (optional - shown in cross-project views) %>
-    <% if show_project_column %>
-      <td class="px-3 py-3 whitespace-nowrap">
-        <%= link_to project_path(request.project), class: "text-sm text-slate-300 hover:text-[#00b4d8] transition-colors" do %>
-          <%= request.project.name %>
-        <% end %>
-      </td>
-    <% end %>
-    
-    <%# Type column %>
-    <td class="px-3 py-3 whitespace-nowrap">
-      <% if type_label %>
-        <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium <%= type_color %>">
-          <%= type_label %>
-        </span>
-      <% else %>
-        <span class="text-slate-500 text-sm">—</span>
-      <% end %>
-    </td>
-    
-    <%# Date requested column %>
-    <td class="px-3 py-3 whitespace-nowrap text-sm text-slate-400">
-      <%= request.created_at.strftime("%b %d, %Y") %>
-    </td>
-    
-    <%# Stage column %>
-    <td class="px-3 py-3 whitespace-nowrap">
-      <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium <%= stage_color %>">
-        <%= stage %>
-      </span>
-    </td>
-    
-    <%# Agent status column %>
-    <td class="px-3 py-3 whitespace-nowrap">
-      <% if agent_running %>
-        <span class="inline-flex items-center gap-1.5 rounded-md bg-amber-900/50 px-2 py-1 text-xs font-medium text-amber-300">
-          <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          Running
-        </span>
-      <% else %>
-        <span class="inline-flex items-center gap-1.5 rounded-md bg-slate-700 px-2 py-1 text-xs font-medium text-slate-400">
-          <span class="flex h-1.5 w-1.5 rounded-full bg-slate-500"></span>
-          Idle
-        </span>
-      <% end %>
-    </td>
-    
-    <%# Pending tasks column %>
-    <td class="px-3 py-3">
-      <%
-        # Determine who has pending tasks based on status
-        pending_users = []
-        
-        # Add designer if design input is needed and we're in the planning phase
-        if request.requires_design_input && 
-           request.design_guidance.blank? && 
-           request.status == "plan_ready"
-          pending_users << request.project.designer if request.project.designer
-        end
-        
-        pending_users = pending_users.compact.uniq
-      %>
-      
-      <% if pending_users.any? %>
-        <div class="text-sm text-slate-300">
-          <%= pending_users.map(&:name).join(", ") %>
+<tr class="group hover:bg-slate-700/50 transition-colors">
+  <%# Request title column %>
+  <td class="py-3 pl-4 pr-3">
+    <%= link_to request_path(request), class: "block" do %>
+      <div class="flex items-center gap-3">
+        <div class="flex-shrink-0">
+          <% if request.pushed_to_asana? %>
+            <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500" title="Pushed to Asana"></span>
+          <% else %>
+            <span class="flex h-2.5 w-2.5 rounded-full bg-slate-500" title="Local only"></span>
+          <% end %>
         </div>
-      <% else %>
-        <span class="text-slate-500 text-sm">—</span>
-      <% end %>
-    </td>
-    
-    <%# Action column %>
-    <td class="relative py-3 pl-3 pr-4 text-right">
-      <%= link_to request_path(request), data: { turbo_frame: "_top" }, class: "text-slate-400 hover:text-[#00b4d8] transition-colors" do %>
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-slate-100 truncate group-hover:text-cyan-400 transition-colors">
+            <% if request.request_number %>
+              <span class="text-slate-400 font-normal">REQ-<%= request.request_number %>:</span>
+            <% end %>
+            <%= request.display_title.truncate(50) %>
+          </p>
+        </div>
+      </div>
+    <% end %>
+  </td>
+
+  <%# Type column %>
+  <td class="px-3 py-3 whitespace-nowrap">
+    <% if type_label %>
+      <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium <%= type_color %>">
+        <%= type_label %>
+      </span>
+    <% else %>
+      <span class="text-slate-500 text-sm">&mdash;</span>
+    <% end %>
+  </td>
+
+  <%# Date column %>
+  <td class="px-3 py-3 whitespace-nowrap text-sm text-slate-400">
+    <%= request.created_at.strftime("%b %d, %Y") %>
+  </td>
+
+  <%# Asana status column %>
+  <td class="px-3 py-3 whitespace-nowrap">
+    <% if request.pushed_to_asana? %>
+      <a href="<%= request.asana_url %>" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1.5 rounded-md bg-emerald-900/50 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900/70 transition-colors">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
         </svg>
-      <% end %>
-    </td>
-  </tr>
-<% end %>
+        In Asana
+      </a>
+    <% else %>
+      <span class="inline-flex items-center rounded-md bg-slate-700 px-2 py-1 text-xs font-medium text-slate-400">
+        Local Only
+      </span>
+    <% end %>
+  </td>
+
+  <%# Action column %>
+  <td class="relative py-3 pl-3 pr-4 text-right">
+    <%= link_to request_path(request), class: "text-slate-400 hover:text-cyan-400 transition-colors" do %>
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      </svg>
+    <% end %>
+  </td>
+</tr>

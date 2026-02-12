@@ -1,71 +1,61 @@
 ---
-description: Core conventions for Nova Flow - Rails 8 app orchestrating AI agents for software development workflows
+description: Core conventions for Nova Flow Intake & Shape - Rails 8 app that uses AI agents to shape intake requests into Asana tasks
 alwaysApply: true
 ---
 
-# Nova Flow Project Conventions
+# Nova Flow Intake & Shape - Project Conventions
 
 ## Architecture Overview
 
-Nova Flow orchestrates Cursor Cloud Agents through a state machine workflow:
-**intake → planning → execution → completed**
+Nova Flow Intake & Shape uses Cursor Cloud Agents to process intake requests:
+**intake → clarification → shaped task → Asana**
 
 ### Core Domain Models
-- **Project**: Repository + team assignments (PM, Designer, Dev)
-- **Request**: A feature/bug request with state machine (AASM)
-- **Brief**: Extracted requirements from intake phase
-- **Plan**: Implementation plan with tasks
-- **Execution**: The actual implementation (PR link, etc.)
-- **Approval**: Role-based sign-off (PM approves briefs, PM+Dev approve plans)
+- **Project**: Repository + Asana project link + context docs
+- **Request**: A shaped task record (local history/audit trail)
+- **User**: App users (PM, Designer, Dev roles)
+- **Comment**: Conversation history from the intake flow
+
+### Asana Integration
+- `Asana::Client`: Wraps the Asana REST API (Faraday-based)
+- `Asana::TaskCreator`: Maps shaped task output to Asana task fields
+- Auth: Personal Access Token via `ASANA_ACCESS_TOKEN` env var
 
 ## Agent Pattern
 
-Agents live in `app/services/agents/` and inherit from `BaseAgent`:
+The only active agent is the `EphemeralIntakeAgent` in `app/services/agents/`:
 
 ```ruby
 module Agents
-  class MyAgent < BaseAgent
-    protected
-
-    def build_prompt
-      # Return the prompt string for this agent
-    end
-
-    def auto_create_pr?
-      false # Override to true if agent creates PRs
-    end
+  class EphemeralIntakeAgent
+    # Launched without a Request record
+    # Uses IntakeAgent::INSTRUCTIONS for the prompt
+    # Produces shaped task output with STATUS markers
   end
 end
 ```
+
+The agent prompt instructions live in `Agents::IntakeAgent::INSTRUCTIONS`.
 
 ## Rails 8 Conventions
 
 - Use Hotwire (Turbo + Stimulus) - no page reloads, use Turbo Streams
 - Stimulus controllers in `app/javascript/controllers/`
 - Tailwind CSS for styling (no custom CSS unless necessary)
-- Use `solid_queue` for background jobs
 - ERB templates, not React/Vue
 
-## State Machine (AASM)
+## Intake Flow
 
-Request states: `intake_pending`, `intake_in_progress`, `intake_needs_clarification`, `plan_ready`, `execution_pending`, `execution_in_progress`, `execution_review`, `completed`
-
-Valid transitions are defined in `Request` model. Always use AASM events:
-```ruby
-request.start_intake!    # Not: request.update!(status: 'intake_in_progress')
-request.clarify_intake!  # Events handle validations
-```
-
-## Feature Development
-
-When adding a new feature, review nearby existing features (same view, controller, or workflow) and identify any that can be simplified, merged, or removed. Include a brief **Sunsetting Recommendation** in the final implementation output noting:
-- Redundant features that overlap with the new one
-- Dead code or unused paths discovered during implementation
-- Opportunities to consolidate similar functionality
+1. PM enters request text in the intake form
+2. `IntakeController#start` launches an `EphemeralIntakeAgent`
+3. Frontend polls `IntakeController#poll` until agent finishes
+4. If agent needs clarification: chat UI appears, messages sent via `IntakeController#message`
+5. When plan is ready: frontend sends `POST /requests` with `plan_content`
+6. `RequestsController#create` extracts structured fields, pushes to Asana, saves local record
 
 ## Testing
 
 - Minitest (not RSpec)
 - FactoryBot for fixtures (`test/factories/`)
-- WebMock for HTTP mocking (Cursor API calls)
+- WebMock for HTTP mocking (Cursor API and Asana API calls)
 - Run tests: `bin/rails test`

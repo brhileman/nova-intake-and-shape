@@ -31,9 +31,8 @@ gem "thruster", require: false
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"
 
-# Nova Flow dependencies
-gem "aasm"                    # State machine for request workflow
-gem "faraday"                 # HTTP client for Cursor API
+# Nova Flow Intake & Shape dependencies
+gem "faraday"                 # HTTP client for Cursor API and Asana API
 gem "thor"                    # CLI framework
 gem "redcarpet"               # Markdown rendering for agent responses
 

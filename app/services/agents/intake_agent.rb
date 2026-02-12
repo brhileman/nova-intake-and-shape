@@ -1,13 +1,10 @@
 # frozen_string_literal: true
 
 module Agents
-  class IntakeAgent < BaseAgent
-    # IntakeAgent creates the agent with auto_create_pr: true
-    # because the same agent persists through all phases including execution
-    def auto_create_pr?
-      true
-    end
-
+  # IntakeAgent holds the prompt instructions used by EphemeralIntakeAgent.
+  # The agent's job is to understand a request through clarifying questions
+  # and produce a detailed, structured implementation plan (shaped task).
+  class IntakeAgent
     INSTRUCTIONS = <<~PROMPT
       You are a planning agent. Your job is to fully understand a request and
       produce a detailed implementation plan.
@@ -194,29 +191,5 @@ module Agents
       The Implementation Plan will be saved and shown to the team for review.
       Make it complete and accurate.
     PROMPT
-
-    protected
-
-    def build_prompt
-      prompt = <<~PROMPT
-        #{INSTRUCTIONS}
-
-        ## Project Context
-        #{project_context}
-
-        ## User Request
-        #{@request.original_input}
-      PROMPT
-
-      if conversation_history.present?
-        prompt += <<~PROMPT
-
-          ## Conversation So Far
-          #{conversation_history}
-        PROMPT
-      end
-
-      prompt
-    end
   end
 end

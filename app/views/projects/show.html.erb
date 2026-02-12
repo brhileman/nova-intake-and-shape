@@ -6,6 +6,11 @@
     <h1 class="text-2xl font-bold text-slate-100"><%= @project.name %></h1>
     <%= render "context_link", project: @project %>
 
+    <%# Asana status badge + settings trigger %>
+    <button type="button" data-action="click->modal#open" data-modal-target="asanaDialog" class="cursor-pointer">
+      <%= render "asana_status_badge", project: @project %>
+    </button>
+
     <%# Context Editor Modal %>
     <dialog id="context_editor_modal"
             data-modal-target="dialog"
@@ -13,7 +18,23 @@
             class="fixed z-50 w-full max-w-3xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
       <turbo-frame id="context_modal" src="<%= context_project_path(@project) %>" loading="lazy">
         <div class="p-8 text-center text-slate-400" data-controller="loading-text">
-          <svg class="animate-spin h-8 w-8 mx-auto text-[#00b4d8]" fill="none" viewBox="0 0 24 24">
+          <svg class="animate-spin h-8 w-8 mx-auto text-cyan-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="mt-2 min-w-[200px]" data-loading-text-target="text">Loading...</p>
+        </div>
+      </turbo-frame>
+    </dialog>
+
+    <%# Asana Settings Modal %>
+    <dialog id="asana_settings_dialog"
+            data-modal-target="asanaDialog"
+            data-action="click->modal#backdropClick"
+            class="fixed z-50 w-full max-w-xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
+      <turbo-frame id="asana_settings_modal" src="<%= asana_settings_project_path(@project) %>" loading="lazy">
+        <div class="p-8 text-center text-slate-400" data-controller="loading-text">
+          <svg class="animate-spin h-8 w-8 mx-auto text-cyan-500" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
@@ -30,58 +51,23 @@
     <nav class="-mb-px flex space-x-6" aria-label="Tabs">
     <%
       filters = [
-        ["all", "All Requests", nil],
-        ["needs_my_action", "Needs My Action", "bg-amber-900/50 text-amber-300"],
-        ["in_review", "In Review", nil],
-        ["created_by_me", "Created by Me", nil]
+        ["all", "All Shaped Tasks"],
+        ["created_by_me", "Created by Me"]
       ]
       current_filter = @current_filter || "all"
     %>
-    <% filters.each do |filter_key, filter_label, badge_class| %>
+    <% filters.each do |filter_key, filter_label| %>
       <% is_active = current_filter == filter_key %>
       <%= link_to project_path(@project, filter: filter_key == "all" ? nil : filter_key),
-                  class: "whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium transition-colors #{is_active ? 'border-[#00b4d8] text-[#00b4d8]' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500'}" do %>
+                  class: "whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium transition-colors #{is_active ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500'}" do %>
         <%= filter_label %>
-        <% if filter_key == "needs_my_action" && current_user %>
-          <% count = @project.requests.needs_action_from(current_user).count %>
-          <% if count > 0 %>
-            <span class="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full <%= badge_class || 'bg-slate-700 text-slate-300' %>">
-              <%= count %>
-            </span>
-          <% end %>
-        <% end %>
       <% end %>
     <% end %>
     </nav>
-    <div class="flex items-center gap-3 mb-3" data-controller="modal">
-      <%# Planning Button %>
-      <button type="button"
-              data-action="click->modal#open"
-              class="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-medium text-slate-400 shadow-sm hover:bg-slate-600 hover:text-slate-300 transition-colors">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-        </svg>
-        Planning
-      </button>
 
-      <%# Decomposition Plan Modal %>
-      <dialog id="decomposition_plan_dialog"
-              data-modal-target="dialog"
-              data-action="click->modal#backdropClick"
-              class="fixed z-50 w-full max-w-7xl p-0 rounded-xl shadow-2xl backdrop:bg-slate-950/80 backdrop:backdrop-blur-sm m-auto bg-slate-800 border border-slate-700">
-        <turbo-frame id="decomposition_plan_modal" src="<%= new_project_decomposition_plan_path(@project) %>" loading="lazy">
-          <div class="p-8 text-center text-slate-400" data-controller="loading-text">
-            <svg class="animate-spin h-8 w-8 mx-auto text-cyan-500" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="mt-2 min-w-[200px]" data-loading-text-target="text">Loading...</p>
-          </div>
-        </turbo-frame>
-      </dialog>
-
+    <div class="flex items-center gap-3 mb-3">
       <%# New Request Button %>
-      <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-[#00b4d8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0096b4] transition-colors" do %>
+      <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700 transition-colors" do %>
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
@@ -96,10 +82,10 @@
     <svg class="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
-    <h3 class="mt-2 text-sm font-semibold text-slate-100">No requests</h3>
-    <p class="mt-1 text-sm text-slate-400">Get started by creating a new request.</p>
+    <h3 class="mt-2 text-sm font-semibold text-slate-100">No shaped tasks yet</h3>
+    <p class="mt-1 text-sm text-slate-400">Create a new request to start the intake & shape flow.</p>
     <div class="mt-6">
-      <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-[#00b4d8] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0096b4]" do %>
+      <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700" do %>
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
@@ -116,34 +102,22 @@
             Request
           </th>
           <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Group
-          </th>
-          <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             Type
           </th>
           <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Date Requested
+            Date
           </th>
           <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Stage
-          </th>
-          <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Agent Status
-          </th>
-          <th scope="col" class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            Pending
+            Asana
           </th>
           <th scope="col" class="relative py-3 pl-3 pr-4">
             <span class="sr-only">View</span>
           </th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-700/50 bg-slate-800"
-             data-controller="sortable"
-             data-sortable-url-value="<%= reorder_requests_path %>"
-             data-sortable-enabled-value="<%= @current_filter == 'all' %>">
+      <tbody class="divide-y divide-slate-700/50 bg-slate-800">
         <% @requests.each do |request| %>
-          <%= render "requests/request_row", request: request, show_drag_handle: (@current_filter == "all") %>
+          <%= render "requests/request_row", request: request %>
         <% end %>
       </tbody>
     </table>

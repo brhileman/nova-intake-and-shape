@@ -2,24 +2,21 @@
 
 class Project < ApplicationRecord
   has_many :requests, dependent: :destroy
-  has_many :request_groups, dependent: :destroy
-  has_many :decomposition_plans, dependent: :destroy
 
-  # Project team assignments
+  # Project owner
   belongs_to :pm, class_name: "User", optional: true
-  belongs_to :designer, class_name: "User", optional: true
-  belongs_to :dev, class_name: "User", optional: true
 
   validates :name, presence: true
   validates :repo_url, presence: true
 
-  # Check if team is fully assigned
-  def team_complete?
-    pm.present? && designer.present? && dev.present?
+  # Check if Asana integration is configured
+  def asana_configured?
+    asana_project_gid.present?
   end
 
-  # Get team members as array
-  def team_members
-    [pm, designer, dev].compact
+  # Get the Asana access token (per-project or fall back to ENV)
+  def asana_access_token
+    # Per-project PAT would go here in the future
+    ENV["ASANA_ACCESS_TOKEN"]
   end
 end

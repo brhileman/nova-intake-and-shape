@@ -5,8 +5,6 @@ module Agents
   # Used during the intake flow to process the initial request and
   # potentially ask clarifying questions before drafting a plan.
   class EphemeralIntakeAgent
-    class ProjectNotConfiguredError < StandardError; end
-
     attr_reader :agent_id
 
     INSTRUCTIONS = IntakeAgent::INSTRUCTIONS
@@ -20,12 +18,6 @@ module Agents
 
     # Launch the ephemeral agent
     def launch
-      unless @project.environment_configured?
-        raise ProjectNotConfiguredError,
-          "Project '#{@project.name}' is not configured for Cloud Agents. " \
-          "Run 'nova project configure #{@project.id}' after setting up .cursor/environment.json"
-      end
-
       response = @client.create_agent(
         prompt: build_prompt,
         repo_url: @project.repo_url,

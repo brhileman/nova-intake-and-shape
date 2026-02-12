@@ -22,13 +22,12 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
   # Index Tests
   # ===================
 
-  test "GET /requests lists all requests" do
+  test "GET /requests lists all shaped tasks" do
     create_list(:request, 3, project: @project)
 
     get requests_path
 
     assert_response :success
-    # 3 request links + 1-2 "New Request" links
     assert_select "a[href*='requests/']", minimum: 3
   end
 
@@ -36,19 +35,28 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
     get requests_path
 
     assert_response :success
-    assert_select "h3", text: "No requests"
+    assert_select "h3", text: "No shaped tasks yet"
   end
 
   # ===================
   # Show Tests
   # ===================
 
-  test "GET /requests/:id shows request details" do
-    request = create(:request, :plan_ready, project: @project)
+  test "GET /requests/:id shows shaped task details" do
+    request_record = create(:request, :with_plan, project: @project)
 
-    get request_path(request)
+    get request_path(request_record)
 
     assert_response :success
+  end
+
+  test "GET /requests/:id shows Asana link when pushed" do
+    request_record = create(:request, :pushed_to_asana, project: @project)
+
+    get request_path(request_record)
+
+    assert_response :success
+    assert_select "a[href*='asana.com']"
   end
 
   # ===================
@@ -61,18 +69,53 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "POST /requests creates request with plan" do
+  test "POST /requests creates request with plan content" do
     assert_difference("Request.count", 1) do
       post requests_path, params: {
         request: { original_input: "Add dark mode toggle" },
-        plan_content: "## Plan\n\n1. Add toggle component"
+        plan_content: "## Implementation Plan\n\n**Title:** Add Dark Mode\n\n**Type:** new"
       }
     end
 
-    request = Request.last
-    assert_equal "plan_ready", request.status
-    assert request.latest_plan.present?
-    assert_redirected_to request_path(request)
+    request_record = Request.last
+    assert_equal "Add dark mode toggle", request_record.original_input
+    assert request_record.plan_content.present?
+    assert_redirected_to request_path(request_record)
+  end
+
+  test "POST /requests extracts structured fields from plan" do
+    post requests_path, params: {
+      request: { original_input: "Add dark mode toggle" },
+      plan_content: "**Title:** Dark Mode Toggle\n\n**Type:** new\n\n**Estimate (Dev Days):** 2.5"
+    }
+
+    request_record = Request.last
+    assert_equal "Dark Mode Toggle", request_record.generated_title
+    assert_equal "new_feature", request_record.request_type
+    assert_equal 2.5, request_record.estimate_days
+  end
+
+  test "POST /requests pushes to Asana when project is configured" do
+    asana_project = create(:project, :with_asana)
+    # Switch to the Asana-configured project
+    post select_project_path(asana_project)
+
+    # Mock Asana API
+    stub_request(:post, "https://app.asana.com/api/1.0/tasks")
+      .to_return(
+        status: 201,
+        body: { data: { gid: "asana-123", permalink_url: "https://app.asana.com/0/0/asana-123" } }.to_json,
+        headers: { "Content-Type" => "application/json" }
+      )
+
+    post requests_path, params: {
+      request: { original_input: "Add dark mode" },
+      plan_content: "## Plan\n\n**Title:** Dark Mode"
+    }
+
+    request_record = Request.last
+    assert_equal "asana-123", request_record.asana_task_gid
+    assert request_record.pushed_to_asana?
   end
 
   test "POST /requests with invalid data re-renders form" do
@@ -83,75 +126,5 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
-  end
-
-  # ===================
-  # Build Tests
-  # ===================
-
-  test "POST /requests/:id/build starts execution" do
-    request = create(:request, :plan_ready, project: @project)
-
-    post build_request_path(request)
-
-    request.reload
-    assert_equal "execution_in_progress", request.status
-    assert_not_nil request.execution_agent_id
-  end
-
-  test "POST /requests/:id/build fails if not plan_ready" do
-    request = create(:request, :execution_in_progress, project: @project)
-
-    post build_request_path(request)
-
-    request.reload
-    assert_equal "execution_in_progress", request.status
-  end
-
-  # ===================
-  # Update Plan Tests
-  # ===================
-
-  test "PATCH /requests/:id/update_plan saves plan content" do
-    request = create(:request, :plan_ready, project: @project)
-
-    patch update_plan_request_path(request), params: { plan_content: "Updated plan content" }
-
-    assert_response :success
-    request.reload
-    assert_equal "Updated plan content", request.latest_plan.content
-  end
-
-  # ===================
-  # Comment Tests
-  # ===================
-
-  test "POST /requests/:id/comment creates comment and sends to agent" do
-    request = create(:request, :plan_ready, project: @project)
-    request.update!(planning_agent_id: "test-agent-123")
-
-    assert_difference("Comment.count", 1) do
-      post comment_request_path(request), params: { message: "Please clarify" }
-    end
-
-    comment = Comment.last
-    assert_equal "user", comment.author_type
-    assert_equal "Please clarify", comment.content
-    assert_equal "planning", comment.phase
-  end
-
-  # ===================
-  # Poll Tests
-  # ===================
-
-  test "GET /requests/:id/poll returns turbo stream" do
-    request = create(:request, :execution_in_progress, project: @project)
-
-    get poll_request_path(request), headers: {
-      "Accept" => "text/vnd.turbo-stream.html"
-    }
-
-    assert_response :success
-    assert_includes response.content_type, "turbo-stream"
   end
 end

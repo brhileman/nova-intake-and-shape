@@ -19,93 +19,51 @@ class RequestTest < ActiveSupport::TestCase
   end
 
   # ===================
-  # State Machine Tests
+  # Display Helper Tests
   # ===================
 
-  test "initial state is intake_pending" do
+  test "display_title prefers generated_title" do
+    request = build(:request, generated_title: "My Title", original_input: "Some input")
+    assert_equal "My Title", request.display_title
+  end
+
+  test "display_title falls back to truncated original_input" do
+    request = build(:request, generated_title: nil, original_input: "A" * 100)
+    assert_equal 60, request.display_title.length
+  end
+
+  test "numbered_title includes request number" do
     request = create(:request)
-    assert_equal "intake_pending", request.status
-  end
-
-  test "start_intake transitions from intake_pending to intake_in_progress" do
-    request = create(:request)
-    request.start_intake!
-    assert_equal "intake_in_progress", request.status
-  end
-
-  test "request_clarification transitions from intake_in_progress to intake_needs_clarification" do
-    request = create(:request, :intake_in_progress)
-    request.request_clarification!
-    assert_equal "intake_needs_clarification", request.status
-  end
-
-  test "clarify_intake transitions from intake_in_progress to plan_ready" do
-    request = create(:request, :intake_in_progress)
-    request.clarify_intake!
-    assert_equal "plan_ready", request.status
-  end
-
-  test "clarify_intake transitions from intake_needs_clarification to plan_ready" do
-    request = create(:request, :intake_needs_clarification)
-    request.clarify_intake!
-    assert_equal "plan_ready", request.status
-  end
-
-  test "full workflow state transitions" do
-    request = create(:request)
-
-    # Intake -> Plan Ready
-    request.start_intake!
-    assert_equal "intake_in_progress", request.status
-
-    request.clarify_intake!
-    assert_equal "plan_ready", request.status
-
-    # Plan Approved -> Execution
-    request.approve_plan!
-    assert_equal "execution_pending", request.status
-
-    request.start_execution!
-    assert_equal "execution_in_progress", request.status
-
-    request.complete_execution!
-    assert_equal "execution_review", request.status
-
-    request.approve_execution!
-    assert_equal "completed", request.status
-  end
-
-  test "revise_plan sends back to intake_in_progress" do
-    request = create(:request, :plan_ready)
-    request.revise_plan!
-    assert_equal "intake_in_progress", request.status
+    assert_match(/REQ-\d+:/, request.numbered_title)
   end
 
   # ===================
-  # Helper Method Tests
+  # Asana Integration Tests
   # ===================
 
-  test "current_phase returns intake for intake states" do
-    request = create(:request, :intake_in_progress)
-    assert_equal "intake", request.current_phase
+  test "pushed_to_asana? returns true when gid present" do
+    request = build(:request, asana_task_gid: "12345")
+    assert request.pushed_to_asana?
   end
 
-  test "current_phase returns intake for plan_ready" do
-    request = create(:request, :plan_ready)
-    assert_equal "intake", request.current_phase
+  test "pushed_to_asana? returns false when gid absent" do
+    request = build(:request, asana_task_gid: nil)
+    assert_not request.pushed_to_asana?
   end
 
-  test "current_phase returns execution for execution states" do
-    request = create(:request, :execution_in_progress)
-    assert_equal "execution", request.current_phase
+  test "asana_url returns task url when present" do
+    request = build(:request, asana_task_url: "https://app.asana.com/0/0/12345")
+    assert_equal "https://app.asana.com/0/0/12345", request.asana_url
   end
 
-  test "latest_plan returns most recent plan" do
-    request = create(:request)
-    create(:plan, request: request, version: 1, content: "First")
-    create(:plan, request: request, version: 2, content: "Second")
+  test "asana_url constructs url from gid when url not stored" do
+    request = build(:request, asana_task_gid: "12345", asana_task_url: nil)
+    assert_equal "https://app.asana.com/0/0/12345", request.asana_url
+  end
 
-    assert_equal "Second", request.latest_plan.content
+  test "asana_url returns nil when no gid" do
+    request = build(:request, asana_task_gid: nil, asana_task_url: nil)
+    assert_nil request.asana_url
   end
 
   # ===================
@@ -132,20 +90,6 @@ class RequestTest < ActiveSupport::TestCase
   # Association Tests
   # ===================
 
-  test "has_many plans" do
-    request = create(:request)
-    create_list(:plan, 2, request: request)
-
-    assert_equal 2, request.plans.count
-  end
-
-  test "has_one execution" do
-    request = create(:request)
-    create(:execution, request: request)
-
-    assert_not_nil request.execution
-  end
-
   test "has_many comments" do
     request = create(:request)
     create_list(:comment, 3, request: request)
@@ -153,11 +97,12 @@ class RequestTest < ActiveSupport::TestCase
     assert_equal 3, request.comments.count
   end
 
-  test "destroying request destroys associated records" do
-    request = create(:request, :completed)
+  test "auto-assigns request_number on create" do
+    project = create(:project)
+    r1 = create(:request, project: project)
+    r2 = create(:request, project: project)
 
-    assert_difference [ "Plan.count", "Execution.count" ], -1 do
-      request.destroy
-    end
+    assert_equal 1, r1.request_number
+    assert_equal 2, r2.request_number
   end
 end

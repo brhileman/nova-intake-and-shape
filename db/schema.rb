@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_10_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
   create_schema "extensions"
 
   # These are extensions that must be enabled in order to support this database
@@ -49,18 +49,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_000006) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
-  create_table "public.approvals", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "phase", null: false
-    t.bigint "request_id", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.index ["phase"], name: "index_approvals_on_phase"
-    t.index ["request_id", "user_id", "phase"], name: "index_approvals_uniqueness", unique: true
-    t.index ["request_id"], name: "index_approvals_on_request_id"
-    t.index ["user_id"], name: "index_approvals_on_user_id"
-  end
-
   create_table "public.comments", force: :cascade do |t|
     t.string "author_name"
     t.string "author_type"
@@ -76,137 +64,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_000006) do
     t.index ["user_id"], name: "index_comments_on_user_id"
   end
 
-  create_table "public.decomposition_plans", force: :cascade do |t|
-    t.string "agent_id"
-    t.integer "agent_message_count_at_followup"
-    t.datetime "created_at", null: false
-    t.bigint "created_by_id"
-    t.text "original_input", null: false
-    t.text "plan_content"
-    t.bigint "project_id", null: false
-    t.string "status", default: "planning"
-    t.string "title"
-    t.datetime "updated_at", null: false
-    t.index ["agent_id"], name: "index_decomposition_plans_on_agent_id"
-    t.index ["created_by_id"], name: "index_decomposition_plans_on_created_by_id"
-    t.index ["project_id"], name: "index_decomposition_plans_on_project_id"
-    t.index ["status"], name: "index_decomposition_plans_on_status"
-  end
-
-  create_table "public.design_guidances", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "provided_at"
-    t.string "provided_by"
-    t.bigint "request_id", null: false
-    t.text "specifications"
-    t.datetime "updated_at", null: false
-    t.bigint "user_id"
-    t.index ["request_id"], name: "index_design_guidances_on_request_id"
-    t.index ["user_id"], name: "index_design_guidances_on_user_id"
-  end
-
-  create_table "public.executions", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "pr_url"
-    t.string "preview_url"
-    t.bigint "request_id", null: false
-    t.text "summary"
-    t.datetime "updated_at", null: false
-    t.index ["request_id"], name: "index_executions_on_request_id"
-  end
-
-  create_table "public.figma_links", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.bigint "design_guidance_id", null: false
-    t.integer "position", default: 0
-    t.datetime "updated_at", null: false
-    t.string "url", null: false
-    t.index ["design_guidance_id", "position"], name: "index_figma_links_on_design_guidance_id_and_position"
-    t.index ["design_guidance_id"], name: "index_figma_links_on_design_guidance_id"
-  end
-
-  create_table "public.plans", force: :cascade do |t|
-    t.text "content"
-    t.datetime "created_at", null: false
-    t.bigint "created_by_id"
-    t.bigint "request_id", null: false
-    t.datetime "updated_at", null: false
-    t.integer "version", default: 1
-    t.index ["created_by_id"], name: "index_plans_on_created_by_id"
-    t.index ["request_id"], name: "index_plans_on_request_id"
-  end
-
   create_table "public.projects", force: :cascade do |t|
+    t.string "asana_project_gid"
+    t.string "asana_workspace_gid"
     t.text "context_docs"
     t.datetime "created_at", null: false
     t.string "default_branch", default: "main"
-    t.bigint "designer_id"
-    t.bigint "dev_id"
-    t.boolean "environment_configured", default: false
     t.string "name", null: false
     t.bigint "pm_id"
     t.string "repo_url", null: false
     t.datetime "updated_at", null: false
-    t.index ["designer_id"], name: "index_projects_on_designer_id"
-    t.index ["dev_id"], name: "index_projects_on_dev_id"
     t.index ["pm_id"], name: "index_projects_on_pm_id"
   end
 
-  create_table "public.request_groups", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "created_by_id"
-    t.bigint "decomposition_plan_id"
-    t.text "description"
-    t.string "name", null: false
-    t.bigint "project_id", null: false
-    t.datetime "updated_at", null: false
-    t.index ["created_by_id"], name: "index_request_groups_on_created_by_id"
-    t.index ["decomposition_plan_id"], name: "index_request_groups_on_decomposition_plan_id"
-    t.index ["project_id", "name"], name: "index_request_groups_on_project_id_and_name", unique: true
-    t.index ["project_id"], name: "index_request_groups_on_project_id"
-  end
-
   create_table "public.requests", force: :cascade do |t|
-    t.integer "agent_message_count_at_followup"
+    t.string "asana_task_gid"
+    t.string "asana_task_url"
     t.datetime "created_at", null: false
     t.bigint "created_by_id"
-    t.text "dependencies"
     t.decimal "estimate_days"
-    t.string "execution_agent_id"
     t.string "generated_title"
     t.text "original_input", null: false
-    t.string "planning_agent_id"
-    t.integer "position"
-    t.integer "priority"
+    t.text "plan_content"
     t.bigint "project_id", null: false
-    t.bigint "request_group_id"
     t.integer "request_number"
     t.integer "request_type", default: 0
-    t.boolean "requires_design_input", default: false
-    t.string "status", default: "plan_ready"
     t.text "summary"
     t.datetime "updated_at", null: false
     t.text "user_story_action"
     t.text "user_story_outcome"
     t.string "user_story_persona"
+    t.index ["asana_task_gid"], name: "index_requests_on_asana_task_gid", unique: true, where: "(asana_task_gid IS NOT NULL)"
     t.index ["created_by_id"], name: "index_requests_on_created_by_id"
-    t.index ["project_id", "position"], name: "index_requests_on_project_id_and_position"
     t.index ["project_id", "request_number"], name: "index_requests_on_project_id_and_request_number", unique: true
     t.index ["project_id"], name: "index_requests_on_project_id"
-    t.index ["request_group_id"], name: "index_requests_on_request_group_id"
     t.index ["request_type"], name: "index_requests_on_request_type"
-    t.index ["status"], name: "index_requests_on_status"
-  end
-
-  create_table "public.technical_guidances", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.text "notes"
-    t.bigint "request_id", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "user_id"
-    t.index ["request_id"], name: "index_technical_guidances_on_request_id", unique: true
-    t.index ["user_id"], name: "index_technical_guidances_on_user_id"
   end
 
   create_table "public.users", force: :cascade do |t|
@@ -221,28 +113,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_000006) do
 
   add_foreign_key "public.active_storage_attachments", "public.active_storage_blobs", column: "blob_id"
   add_foreign_key "public.active_storage_variant_records", "public.active_storage_blobs", column: "blob_id"
-  add_foreign_key "public.approvals", "public.requests"
-  add_foreign_key "public.approvals", "public.users"
   add_foreign_key "public.comments", "public.requests"
   add_foreign_key "public.comments", "public.users"
-  add_foreign_key "public.decomposition_plans", "public.projects"
-  add_foreign_key "public.decomposition_plans", "public.users", column: "created_by_id"
-  add_foreign_key "public.design_guidances", "public.requests"
-  add_foreign_key "public.design_guidances", "public.users"
-  add_foreign_key "public.executions", "public.requests"
-  add_foreign_key "public.figma_links", "public.design_guidances"
-  add_foreign_key "public.plans", "public.requests"
-  add_foreign_key "public.plans", "public.users", column: "created_by_id"
-  add_foreign_key "public.projects", "public.users", column: "designer_id"
-  add_foreign_key "public.projects", "public.users", column: "dev_id"
   add_foreign_key "public.projects", "public.users", column: "pm_id"
-  add_foreign_key "public.request_groups", "public.decomposition_plans"
-  add_foreign_key "public.request_groups", "public.projects"
-  add_foreign_key "public.request_groups", "public.users", column: "created_by_id"
   add_foreign_key "public.requests", "public.projects"
-  add_foreign_key "public.requests", "public.request_groups"
   add_foreign_key "public.requests", "public.users", column: "created_by_id"
-  add_foreign_key "public.technical_guidances", "public.requests"
-  add_foreign_key "public.technical_guidances", "public.users"
 
 end
