@@ -8,13 +8,13 @@ alwaysApply: true
 ## Architecture Overview
 
 Nova Flow Intake & Shape uses Cursor Cloud Agents to process intake requests:
-**intake → clarification → shaped task → Asana**
+**intake → clarification → plan drafted → review/edit/chat → send to Asana**
 
 ### Core Domain Models
 - **Project**: Repository + Asana project link + context docs
-- **Request**: A shaped task record (local history/audit trail)
+- **Request**: A shaped task record with status (draft → sent_to_asana)
 - **User**: App users (PM, Designer, Dev roles)
-- **Comment**: Conversation history from the intake flow
+- **Comment**: Conversation history from intake + plan review chat
 
 ### Asana Integration
 - `Asana::Client`: Wraps the Asana REST API (Faraday-based)
@@ -44,14 +44,18 @@ The agent prompt instructions live in `Agents::IntakeAgent::INSTRUCTIONS`.
 - Tailwind CSS for styling (no custom CSS unless necessary)
 - ERB templates, not React/Vue
 
-## Intake Flow
+## Intake & Review Flow
 
 1. PM enters request text in the intake form
 2. `IntakeController#start` launches an `EphemeralIntakeAgent`
 3. Frontend polls `IntakeController#poll` until agent finishes
 4. If agent needs clarification: chat UI appears, messages sent via `IntakeController#message`
-5. When plan is ready: frontend sends `POST /requests` with `plan_content`
-6. `RequestsController#create` extracts structured fields, pushes to Asana, saves local record
+5. When plan is ready: frontend sends `POST /requests` with `plan_content` + `agent_id`
+6. `RequestsController#create` saves Request in `draft` status with `intake_agent_id`
+7. Redirects to plan review page (`requests/show`) with Preview/Edit toggle + agent chat
+8. User can edit plan directly, chat with agent for refinements, or both
+9. When satisfied, user clicks "Send to Asana" → `RequestsController#send_to_asana`
+10. Request status changes to `sent_to_asana`, Asana task is created
 
 ## Testing
 

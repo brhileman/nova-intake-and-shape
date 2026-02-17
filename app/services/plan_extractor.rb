@@ -36,13 +36,25 @@ class PlanExtractor
     match[1].downcase.to_sym
   end
 
-  # Extract just the Implementation Plan section from the full response
-  # @return [String, nil] The plan content or nil if not found
+  # Extract just the Implementation Plan section from the full response.
+  # Strips conversational preamble (e.g. "I have complete clarity now..."),
+  # STATUS markers, and trailing separators.
+  # @return [String, nil] The plan content (including heading) or nil if not found
   def self.extract_plan_section(content)
     return nil if content.blank?
 
-    match = content.match(PLAN_SECTION_PATTERN)
-    match&.[](1)&.strip
+    # Find the start of the Implementation Plan heading
+    plan_start = content.index("## Implementation Plan")
+    return nil unless plan_start
+
+    plan_text = content[plan_start..]
+
+    # Strip STATUS markers and trailing separators
+    plan_text
+      .gsub(/\n---\s*\nSTATUS:\s*\w+\s*\z/i, "")
+      .gsub(/\nSTATUS:\s*\w+\s*\z/i, "")
+      .gsub(/\n---\s*\z/, "")
+      .strip
   end
 
   # Extract all structured data from the plan content
@@ -50,7 +62,6 @@ class PlanExtractor
   def extract
     {
       estimate_days: extract_estimate,
-      requires_design_input: design_input_needed?,
       request_type: extract_request_type,
       generated_title: extract_field(:title),
       user_story_persona: extract_field(:persona),

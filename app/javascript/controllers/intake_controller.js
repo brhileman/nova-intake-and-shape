@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { createLoadingTextRotator } from "utils/loading_messages"
 
 // Handles the ephemeral intake flow before a Request record is created
 // Flow: Input -> Processing -> (if clarification needed) Chat -> Create Request
@@ -22,10 +23,13 @@ export default class extends Controller {
     this.agentId = null
     this.pollInterval = null
     this.originalInput = null
+    this.loadingRotator = null
+    this.loadingDelayTimeout = null
   }
 
   disconnect() {
     this.stopPolling()
+    this.stopLoadingRotator()
   }
 
   // Called when user clicks "Submit Request"
@@ -48,6 +52,7 @@ export default class extends Controller {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
           "X-CSRF-Token": this.csrfToken
         },
         body: JSON.stringify({ original_input: input })
@@ -79,11 +84,15 @@ export default class extends Controller {
     this.addMessage("user", message)
     this.chatInputTarget.value = ""
 
+    // Show typing indicator while agent processes
+    this.showTypingIndicator()
+
     try {
       const response = await fetch("/intake/message", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
           "X-CSRF-Token": this.csrfToken
         },
         body: JSON.stringify({ message })
@@ -92,6 +101,7 @@ export default class extends Controller {
       const data = await response.json()
 
       if (!data.success) {
+        this.removeTypingIndicator()
         this.addMessage("system", `Error: ${data.error}`)
         return
       }
@@ -100,6 +110,7 @@ export default class extends Controller {
       this.startPolling()
     } catch (error) {
       console.error("Send message error:", error)
+      this.removeTypingIndicator()
       this.addMessage("system", "Failed to send message. Please try again.")
     }
   }
@@ -143,10 +154,12 @@ export default class extends Controller {
 
       // Update messages if in chat mode
       if (data.status === "needs_clarification") {
+        this.removeTypingIndicator()
         this.updateMessages(data.messages)
         this.showChat()
         this.stopPolling()
       } else if (data.status === "plan_ready") {
+        this.removeTypingIndicator()
         this.stopPolling()
         this.createRequest(data.plan_content)
       }
@@ -158,6 +171,9 @@ export default class extends Controller {
 
   updateStatus(status) {
     if (this.hasProcessingStatusTarget) {
+      // Don't overwrite the fun rotating messages while still processing
+      if (status === "processing" && this.loadingRotator) return
+
       const statusMessages = {
         processing: "Agent is analyzing your request...",
         needs_clarification: "Agent needs more information...",
@@ -220,17 +236,19 @@ export default class extends Controller {
       return
     }
 
-    // Create the actual request with the plan
+    // Create the actual request with the plan (draft status -- user will review before sending to Asana)
     try {
       const response = await fetch("/requests", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
           "X-CSRF-Token": this.csrfToken
         },
         body: JSON.stringify({
           request: { original_input: this.originalInput },
-          plan_content: planContent
+          plan_content: planContent,
+          agent_id: this.agentId
         })
       })
 
@@ -253,9 +271,40 @@ export default class extends Controller {
     if (this.hasChatAreaTarget) {
       this.chatAreaTarget.classList.add("hidden")
     }
+    this.startLoadingRotator()
+  }
+
+  startLoadingRotator() {
+    this.stopLoadingRotator()
+
+    if (!this.hasProcessingStatusTarget) return
+
+    // Show the initial "analyzing" message first
+    this.processingStatusTarget.textContent = "Agent is analyzing your request..."
+
+    // After 5 seconds, switch to fun rotating messages
+    this.loadingDelayTimeout = setTimeout(() => {
+      this.loadingRotator = createLoadingTextRotator(this.processingStatusTarget, {
+        intervalMin: 4000,
+        intervalMax: 7000
+      })
+      this.loadingRotator.start()
+    }, 5000)
+  }
+
+  stopLoadingRotator() {
+    if (this.loadingDelayTimeout) {
+      clearTimeout(this.loadingDelayTimeout)
+      this.loadingDelayTimeout = null
+    }
+    if (this.loadingRotator) {
+      this.loadingRotator.stop()
+      this.loadingRotator = null
+    }
   }
 
   showChat() {
+    this.stopLoadingRotator()
     this.inputFormTarget.classList.add("hidden")
     this.processingAreaTarget.classList.add("hidden")
     this.chatAreaTarget.classList.remove("hidden")
@@ -263,6 +312,7 @@ export default class extends Controller {
   }
 
   showError(message) {
+    this.stopLoadingRotator()
     alert(message)
     // Reset to input form
     this.processingAreaTarget.classList.add("hidden")
@@ -270,6 +320,30 @@ export default class extends Controller {
       this.chatAreaTarget.classList.add("hidden")
     }
     this.inputFormTarget.classList.remove("hidden")
+  }
+
+  showTypingIndicator() {
+    this.removeTypingIndicator() // Prevent duplicates
+    const div = document.createElement("div")
+    div.className = "flex justify-start"
+    div.setAttribute("data-typing-indicator", "true")
+    div.innerHTML = `
+      <div class="px-4 py-3 rounded-lg bg-slate-700">
+        <div class="flex items-center gap-1.5">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+      </div>
+    `
+    this.messagesTarget.appendChild(div)
+    this.scrollToBottom()
+  }
+
+  removeTypingIndicator() {
+    if (!this.hasMessagesTarget) return
+    const indicator = this.messagesTarget.querySelector("[data-typing-indicator]")
+    if (indicator) indicator.remove()
   }
 
   scrollToBottom() {

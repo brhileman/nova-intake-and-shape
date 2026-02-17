@@ -9,14 +9,17 @@ class Asana::ClientTest < ActiveSupport::TestCase
   end
 
   test "raises AuthenticationError when no token provided" do
-    ENV.stub(:[], nil) do
-      assert_raises(Asana::Client::AuthenticationError) do
-        Asana::Client.new(access_token: nil)
-      end
+    original = ENV["ASANA_ACCESS_TOKEN"]
+    ENV.delete("ASANA_ACCESS_TOKEN")
+
+    assert_raises(Asana::Client::AuthenticationError) do
+      Asana::Client.new(access_token: nil)
     end
+  ensure
+    ENV["ASANA_ACCESS_TOKEN"] = original if original
   end
 
-  test "create_task sends correct request" do
+  test "create_task sends plain-text notes when html_notes not provided" do
     stub = stub_request(:post, "https://app.asana.com/api/1.0/tasks")
       .with(
         body: hash_including(
@@ -39,6 +42,32 @@ class Asana::ClientTest < ActiveSupport::TestCase
     assert_requested(stub)
     assert_equal "task-456", result["gid"]
     assert_equal "https://app.asana.com/0/0/task-456", result["permalink_url"]
+  end
+
+  test "create_task sends html_notes when provided (preferred over notes)" do
+    html = "<body><h2>Plan</h2><p><strong>Type:</strong> chore</p></body>"
+
+    stub = stub_request(:post, "https://app.asana.com/api/1.0/tasks")
+      .with(
+        body: hash_including(
+          "data" => hash_including(
+            "name" => "Rich Task",
+            "html_notes" => html,
+            "projects" => ["proj-123"]
+          )
+        ),
+        headers: { "Authorization" => "Bearer test-token" }
+      )
+      .to_return(
+        status: 201,
+        body: { data: { gid: "task-789", permalink_url: "https://app.asana.com/0/0/task-789" } }.to_json,
+        headers: { "Content-Type" => "application/json" }
+      )
+
+    result = @client.create_task(project_gid: "proj-123", name: "Rich Task", html_notes: html)
+
+    assert_requested(stub)
+    assert_equal "task-789", result["gid"]
   end
 
   test "list_workspaces returns workspace data" do

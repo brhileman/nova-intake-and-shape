@@ -22,7 +22,7 @@ default: &default
 
 development:
   <<: *default
-  url: <%= ENV["SUPABASE_DATABASE_URL"] %>
+  database: nova_flow_intake_shape_dev
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".

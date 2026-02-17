@@ -18,6 +18,64 @@ class RequestTest < ActiveSupport::TestCase
     assert_not request.valid?
   end
 
+  test "validates status inclusion" do
+    request = build(:request, status: "invalid_status")
+    assert_not request.valid?
+    assert_includes request.errors[:status], "is not included in the list"
+  end
+
+  # ===================
+  # Status Tests
+  # ===================
+
+  test "default status is draft" do
+    request = create(:request)
+    assert request.draft?
+    assert_equal "draft", request.status
+  end
+
+  test "draft? returns true for draft status" do
+    request = build(:request, status: "draft")
+    assert request.draft?
+  end
+
+  test "sent_to_asana? returns true for sent status" do
+    request = build(:request, status: "sent_to_asana")
+    assert request.sent_to_asana?
+  end
+
+  test "agent_available? returns true when intake_agent_id present" do
+    request = build(:request, intake_agent_id: "agent-123")
+    assert request.agent_available?
+  end
+
+  test "agent_available? returns false when intake_agent_id absent" do
+    request = build(:request, intake_agent_id: nil)
+    assert_not request.agent_available?
+  end
+
+  # ===================
+  # Scope Tests
+  # ===================
+
+  test "drafts scope returns only draft requests" do
+    project = create(:project)
+    draft = create(:request, project: project, status: "draft")
+    sent = create(:request, :sent, project: project)
+
+    assert_includes Request.drafts, draft
+    assert_not_includes Request.drafts, sent
+  end
+
+  test "sent scope returns only sent requests" do
+    project = create(:project)
+    draft = create(:request, project: project, status: "draft")
+    sent = create(:request, :sent, project: project)
+
+    assert_includes Request.sent, sent
+    assert_not_includes Request.sent, draft
+  end
+
   # ===================
   # Display Helper Tests
   # ===================

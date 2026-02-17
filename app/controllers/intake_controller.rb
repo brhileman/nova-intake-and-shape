@@ -147,7 +147,11 @@ class IntakeController < ApplicationController
 
     content = last_assistant_msg["text"] || ""
 
-    # Remove status markers and return the plan content
+    # Extract just the Implementation Plan section, stripping conversational preamble
+    plan = PlanExtractor.extract_plan_section(content)
+    return plan if plan.present?
+
+    # Fallback: strip STATUS markers if no plan section found
     content
       .gsub(/---\s*STATUS:\s*clarified\s*$/i, "")
       .gsub(/STATUS:\s*clarified/i, "")

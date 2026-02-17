@@ -15,34 +15,46 @@ module Asana
     class NotFoundError < Error; end
     class RateLimitError < Error; end
 
-    BASE_URL = "https://app.asana.com/api/1.0"
+    BASE_URL = "https://app.asana.com/api/1.0/"
 
     def initialize(access_token: nil)
       @access_token = access_token || ENV["ASANA_ACCESS_TOKEN"]
       raise AuthenticationError, "No Asana access token provided. Set ASANA_ACCESS_TOKEN env var." unless @access_token
     end
 
-    # Create a task in an Asana project
-    # @param project_gid [String] The Asana project GID
-    # @param name [String] Task name/title
-    # @param notes [String] Task description (supports rich text / markdown-like formatting)
-    # @param custom_fields [Hash] Optional custom field GID => value mappings
+    # Create a task in an Asana project.
+    #
+    # Provide **either** `html_notes` (preferred — rich text) or `notes` (plain
+    # text fallback). When `html_notes` is present it takes precedence; Asana
+    # will derive the plain-text `notes` automatically.
+    #
+    # @param project_gid  [String] The Asana project GID
+    # @param name         [String] Task name/title
+    # @param notes        [String] Plain-text description (fallback)
+    # @param html_notes   [String, nil] Asana-compatible HTML description (<body>…</body>)
+    # @param custom_fields [Hash]  Optional custom field GID => value mappings
     # @return [Hash] Created task data including "gid" and "permalink_url"
-    def create_task(project_gid:, name:, notes: "", custom_fields: {})
+    def create_task(project_gid:, name:, notes: "", html_notes: nil, custom_fields: {})
       body = {
         data: {
           name: name,
-          notes: notes,
           projects: [project_gid]
         }
       }
+
+      # Prefer html_notes for rich formatting; fall back to plain-text notes.
+      if html_notes.present?
+        body[:data][:html_notes] = html_notes
+      else
+        body[:data][:notes] = notes
+      end
 
       # Add custom fields if provided
       if custom_fields.any?
         body[:data][:custom_fields] = custom_fields
       end
 
-      response = post("/tasks", body)
+      response = post("tasks", body)
       response["data"]
     end
 
@@ -56,7 +68,7 @@ module Asana
         archived: archived,
         opt_fields: "name,color,icon,permalink_url"
       }
-      response = get("/projects", params)
+      response = get("projects", params)
       response["data"] || []
     end
 
@@ -64,7 +76,7 @@ module Asana
     # @param project_gid [String] The Asana project GID
     # @return [Array<Hash>] Array of custom field data
     def list_custom_fields(project_gid:)
-      response = get("/projects/#{project_gid}/custom_field_settings", {
+      response = get("projects/#{project_gid}/custom_field_settings", {
         opt_fields: "custom_field.name,custom_field.gid,custom_field.type,custom_field.enum_options,custom_field.enum_options.name"
       })
       response["data"] || []
@@ -73,7 +85,7 @@ module Asana
     # List workspaces accessible to the authenticated user
     # @return [Array<Hash>] Array of workspace data
     def list_workspaces
-      response = get("/workspaces", { opt_fields: "name,is_organization" })
+      response = get("workspaces", { opt_fields: "name,is_organization" })
       response["data"] || []
     end
 
@@ -81,7 +93,7 @@ module Asana
     # @param task_gid [String] The Asana task GID
     # @return [Hash] Task data
     def get_task(task_gid:)
-      response = get("/tasks/#{task_gid}", { opt_fields: "name,notes,permalink_url,completed" })
+      response = get("tasks/#{task_gid}", { opt_fields: "name,notes,permalink_url,completed" })
       response["data"]
     end
 

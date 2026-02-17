@@ -10,18 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
-  create_schema "extensions"
-
+ActiveRecord::Schema[8.1].define(version: 2026_02_12_000001) do
   # These are extensions that must be enabled in order to support this database
-  enable_extension "extensions.pg_stat_statements"
-  enable_extension "extensions.pgcrypto"
-  enable_extension "extensions.uuid-ossp"
-  enable_extension "graphql.pg_graphql"
   enable_extension "pg_catalog.plpgsql"
-  enable_extension "vault.supabase_vault"
 
-  create_table "public.active_storage_attachments", force: :cascade do |t|
+  create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -31,7 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
     t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
   end
 
-  create_table "public.active_storage_blobs", force: :cascade do |t|
+  create_table "active_storage_blobs", force: :cascade do |t|
     t.bigint "byte_size", null: false
     t.string "checksum"
     t.string "content_type"
@@ -43,13 +36,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
     t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
   end
 
-  create_table "public.active_storage_variant_records", force: :cascade do |t|
+  create_table "active_storage_variant_records", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
-  create_table "public.comments", force: :cascade do |t|
+  create_table "comments", force: :cascade do |t|
     t.string "author_name"
     t.string "author_type"
     t.string "comment_type", default: "agent_chat", null: false
@@ -64,7 +57,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
     t.index ["user_id"], name: "index_comments_on_user_id"
   end
 
-  create_table "public.projects", force: :cascade do |t|
+  create_table "projects", force: :cascade do |t|
     t.string "asana_project_gid"
     t.string "asana_workspace_gid"
     t.text "context_docs"
@@ -77,18 +70,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
     t.index ["pm_id"], name: "index_projects_on_pm_id"
   end
 
-  create_table "public.requests", force: :cascade do |t|
+  create_table "requests", force: :cascade do |t|
     t.string "asana_task_gid"
     t.string "asana_task_url"
     t.datetime "created_at", null: false
     t.bigint "created_by_id"
     t.decimal "estimate_days"
     t.string "generated_title"
+    t.string "intake_agent_id"
     t.text "original_input", null: false
     t.text "plan_content"
     t.bigint "project_id", null: false
     t.integer "request_number"
     t.integer "request_type", default: 0
+    t.string "status", default: "draft"
     t.text "summary"
     t.datetime "updated_at", null: false
     t.text "user_story_action"
@@ -99,9 +94,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
     t.index ["project_id", "request_number"], name: "index_requests_on_project_id_and_request_number", unique: true
     t.index ["project_id"], name: "index_requests_on_project_id"
     t.index ["request_type"], name: "index_requests_on_request_type"
+    t.index ["status"], name: "index_requests_on_status"
   end
 
-  create_table "public.users", force: :cascade do |t|
+  create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email"
     t.string "name", null: false
@@ -111,12 +107,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_000001) do
     t.index ["role"], name: "index_users_on_role"
   end
 
-  add_foreign_key "public.active_storage_attachments", "public.active_storage_blobs", column: "blob_id"
-  add_foreign_key "public.active_storage_variant_records", "public.active_storage_blobs", column: "blob_id"
-  add_foreign_key "public.comments", "public.requests"
-  add_foreign_key "public.comments", "public.users"
-  add_foreign_key "public.projects", "public.users", column: "pm_id"
-  add_foreign_key "public.requests", "public.projects"
-  add_foreign_key "public.requests", "public.users", column: "created_by_id"
-
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "comments", "requests"
+  add_foreign_key "comments", "users"
+  add_foreign_key "projects", "users", column: "pm_id"
+  add_foreign_key "requests", "projects"
+  add_foreign_key "requests", "users", column: "created_by_id"
 end

@@ -5,12 +5,10 @@ import { Controller } from "@hotwired/stimulus"
 //
 // Usage:
 //   data-controller="modal" on the container
-//   data-action="click->modal#open" on trigger buttons (opens first dialog)
-//   data-modal-target="dialog" on dialog elements
-//
-// For multiple dialogs, use the target name in the action param:
-//   data-action="click->modal#open" data-modal-target="asanaDialog"
-//   The button opens the dialog target named in its own data-modal-target attribute.
+//   data-modal-target="dialog" on the default dialog element
+//   data-modal-target="asanaDialog" on the asana dialog element
+//   data-action="click->modal#open" on trigger buttons (opens default dialog)
+//   data-modal-dialog-param="asanaDialog" on trigger to open a specific dialog
 export default class extends Controller {
   static targets = ["dialog", "asanaDialog"]
 
@@ -25,9 +23,9 @@ export default class extends Controller {
 
   open(event) {
     event.preventDefault()
-    // Determine which dialog to open based on the trigger's data-modal-target
-    const triggerTarget = event.currentTarget.getAttribute("data-modal-target")
-    const dialog = this._findDialog(triggerTarget)
+    // Use a data param to determine which dialog to open
+    const dialogName = event.params?.dialog || "dialog"
+    const dialog = this._findDialog(dialogName)
     if (dialog) {
       dialog.showModal()
       document.body.classList.add("overflow-hidden")
@@ -36,7 +34,6 @@ export default class extends Controller {
 
   close(event) {
     if (event) event.preventDefault()
-    // Close any open dialog
     this._allDialogs().forEach(d => {
       if (d.open) {
         d.close()

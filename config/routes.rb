@@ -33,6 +33,13 @@ Rails.application.routes.draw do
     get :poll, as: :intake_poll          # Checks agent status, extracts plan when ready
   end
 
-  # Shaped tasks (intake history)
-  resources :requests, only: [ :index, :show, :new, :create ]
+  # Shaped tasks (intake history + plan review)
+  resources :requests, only: [ :index, :show, :new, :create ] do
+    member do
+      patch :update_plan     # Auto-save plan content edits
+      post :comment          # Send follow-up message to agent
+      get :poll              # Check agent status after follow-up
+      post :send_to_asana    # Finalize and push to Asana
+    end
+  end
 end

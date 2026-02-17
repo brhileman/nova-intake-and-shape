@@ -23,10 +23,12 @@
     <%= link_to request_path(request), class: "block" do %>
       <div class="flex items-center gap-3">
         <div class="flex-shrink-0">
-          <% if request.pushed_to_asana? %>
+          <% if request.draft? %>
+            <span class="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" title="Draft - In Review"></span>
+          <% elsif request.pushed_to_asana? %>
             <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500" title="Pushed to Asana"></span>
           <% else %>
-            <span class="flex h-2.5 w-2.5 rounded-full bg-slate-500" title="Local only"></span>
+            <span class="flex h-2.5 w-2.5 rounded-full bg-slate-500" title="Finalized"></span>
           <% end %>
         </div>
         <div class="min-w-0 flex-1">
@@ -57,9 +59,16 @@
     <%= request.created_at.strftime("%b %d, %Y") %>
   </td>
 
-  <%# Asana status column %>
+  <%# Status column %>
   <td class="px-3 py-3 whitespace-nowrap">
-    <% if request.pushed_to_asana? %>
+    <% if request.draft? %>
+      <span class="inline-flex items-center gap-1.5 rounded-md bg-amber-900/50 px-2 py-1 text-xs font-medium text-amber-300">
+        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+        </svg>
+        Draft
+      </span>
+    <% elsif request.pushed_to_asana? %>
       <a href="<%= request.asana_url %>" target="_blank" rel="noopener"
          class="inline-flex items-center gap-1.5 rounded-md bg-emerald-900/50 px-2 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900/70 transition-colors">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,7 +78,7 @@
       </a>
     <% else %>
       <span class="inline-flex items-center rounded-md bg-slate-700 px-2 py-1 text-xs font-medium text-slate-400">
-        Local Only
+        Finalized
       </span>
     <% end %>
   </td>

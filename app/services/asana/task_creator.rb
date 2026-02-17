@@ -3,9 +3,9 @@
 module Asana
   # Maps a shaped task (from PlanExtractor output) to an Asana task.
   #
-  # The task name comes from the extracted title.
-  # The task notes (description) contain the full shaped plan markdown.
-  # Custom fields are mapped if the Asana project has them configured.
+  # The task name comes from the extracted title (no type prefix).
+  # The task notes (description) contain the implementation plan minus the title.
+  # The "LPL Status" custom field is always set to "Shaping".
   #
   # Usage:
   #   result = Asana::TaskCreator.new(
@@ -18,6 +18,9 @@ module Asana
   #   result[:url]  # => "https://app.asana.com/0/0/1234567890"
   #
   class TaskCreator
+    LPL_STATUS_FIELD_NAME = "LPL Status"
+    LPL_STATUS_VALUE = "Shaping"
+
     def initialize(project:, request:, plan_content:)
       @project = project
       @request = request
@@ -29,85 +32,67 @@ module Asana
     def create_task
       client = Client.new(access_token: @project.asana_access_token)
 
+      custom_fields = resolve_custom_fields(client)
+
       task_data = client.create_task(
         project_gid: @project.asana_project_gid,
         name: task_name,
-        notes: task_notes
+        html_notes: task_html_notes,
+        custom_fields: custom_fields
       )
 
       {
         gid: task_data["gid"],
         url: task_data["permalink_url"] || "https://app.asana.com/0/0/#{task_data["gid"]}"
       }
+    rescue Client::Error => e
+      Rails.logger.error "[Nova Flow] Asana task creation failed for project_gid=#{@project.asana_project_gid}, workspace_gid=#{@project.asana_workspace_gid}: #{e.message}"
+      raise
     end
 
     private
 
-    # Build the task name from the extracted title or original input
+    # The Asana task name is just the title — no type prefix.
     def task_name
-      title = @request.generated_title.presence || @request.original_input.truncate(100)
-
-      # Prefix with type if available
-      type_prefix = case @request.request_type
-      when "new_feature" then "[New] "
-      when "update" then "[Update] "
-      when "fix" then "[Fix] "
-      when "chore" then "[Chore] "
-      else ""
-      end
-
-      "#{type_prefix}#{title}"
+      @request.generated_title.presence || @request.original_input.truncate(100)
     end
 
-    # Build the task notes (description) with structured information + full plan
+    # The Asana description is the implementation plan with the title line stripped out.
     def task_notes
-      sections = []
+      return "" if @plan_content.blank?
 
-      # Add user story if present
-      if @request.user_story_persona.present?
-        sections << "USER STORY"
-        sections << "As a #{@request.user_story_persona}"
-        sections << "I want #{@request.user_story_action}" if @request.user_story_action.present?
-        sections << "So that #{@request.user_story_outcome}" if @request.user_story_outcome.present?
-        sections << ""
+      # Strip the "Title: ..." line (plain text or markdown bold variants)
+      @plan_content
+        .gsub(/^\*{0,2}(?:Recommended\s+)?Title:?\*{0,2}\s*.+\n?/, "")
+        .strip
+    end
+
+    # Convert the markdown plan content to Asana-compatible HTML.
+    def task_html_notes
+      MarkdownToHtml.convert(task_notes)
+    end
+
+    # Look up the "LPL Status" enum custom field on the project and return
+    # a hash mapping its GID to the "Shaping" enum option GID.
+    # Returns an empty hash if the field or option is not found (graceful no-op).
+    def resolve_custom_fields(client)
+      field_settings = client.list_custom_fields(project_gid: @project.asana_project_gid)
+
+      lpl_status_setting = field_settings.find do |setting|
+        setting.dig("custom_field", "name") == LPL_STATUS_FIELD_NAME
       end
 
-      # Add summary for fix/chore requests
-      if @request.summary.present?
-        sections << "SUMMARY"
-        sections << @request.summary
-        sections << ""
-      end
+      return {} unless lpl_status_setting
 
-      # Add metadata
-      metadata = []
-      metadata << "Type: #{@request.request_type&.humanize}" if @request.request_type.present?
-      metadata << "Estimate: #{@request.estimate_days} dev days" if @request.estimate_days.present?
-      metadata << "Nova Request: REQ-#{@request.request_number}" if @request.request_number.present?
+      field = lpl_status_setting["custom_field"]
+      shaping_option = (field["enum_options"] || []).find { |opt| opt["name"] == LPL_STATUS_VALUE }
 
-      if metadata.any?
-        sections << "METADATA"
-        sections += metadata
-        sections << ""
-      end
+      return {} unless shaping_option
 
-      # Add the full shaped plan
-      if @plan_content.present?
-        sections << "─" * 40
-        sections << "SHAPED TASK DETAILS"
-        sections << "─" * 40
-        sections << ""
-        sections << @plan_content
-      end
-
-      # Add original request for reference
-      sections << ""
-      sections << "─" * 40
-      sections << "ORIGINAL REQUEST"
-      sections << "─" * 40
-      sections << @request.original_input
-
-      sections.join("\n")
+      { field["gid"] => shaping_option["gid"] }
+    rescue Client::Error => e
+      Rails.logger.warn "[Nova Flow] Could not resolve LPL Status custom field: #{e.message}"
+      {}
     end
   end
 end

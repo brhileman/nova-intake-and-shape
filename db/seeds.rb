@@ -25,7 +25,7 @@ puts "Created #{User.count} users"
 # Seed demo projects
 puts "Seeding projects..."
 
-Project.find_or_create_by!(repo_url: "https://github.com/LaunchPadLab/astro-dance.git") do |project|
+Project.find_or_create_by!(repo_url: "https://github.com/brhileman/astro-dance-v0.git") do |project|
   project.name = "Astro Dance"
   project.default_branch = "main"
   project.pm = pm_user

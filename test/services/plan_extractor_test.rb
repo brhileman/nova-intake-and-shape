@@ -21,26 +21,29 @@ class PlanExtractorTest < ActiveSupport::TestCase
     assert_equal 3.0, result[:estimate_days]
   end
 
-  test "detects design input needed" do
-    content = <<~CONTENT
-      ## Design References
-
-      - [ ] **DESIGN INPUT NEEDED**: New dashboard layout required
-    CONTENT
-
+  test "extracts request type" do
+    content = "**Type:** new\n\nSome content"
     result = PlanExtractor.new(content).extract
-    assert_equal true, result[:requires_design_input]
+    assert_equal "new_feature", result[:request_type]
   end
 
-  test "returns false for no design input needed" do
-    content = <<~CONTENT
-      ## Design References
+  test "extracts title" do
+    content = "**Title:** Add Dark Mode Toggle\n\nSome content"
+    result = PlanExtractor.new(content).extract
+    assert_equal "Add Dark Mode Toggle", result[:generated_title]
+  end
 
-      No design input required - using existing patterns.
+  test "extracts user story fields" do
+    content = <<~CONTENT
+      **As a** developer
+      **I want** to toggle dark mode
+      **So that** I can work in low light
     CONTENT
 
     result = PlanExtractor.new(content).extract
-    assert_equal false, result[:requires_design_input]
+    assert_equal "developer", result[:user_story_persona]
+    assert_equal "to toggle dark mode", result[:user_story_action]
+    assert_equal "I can work in low light", result[:user_story_outcome]
   end
 
   test "handles missing estimate gracefully" do
@@ -51,6 +54,6 @@ class PlanExtractorTest < ActiveSupport::TestCase
 
   test "handles nil content gracefully" do
     result = PlanExtractor.new(nil).extract
-    assert_equal false, result[:requires_design_input]
+    assert_empty result
   end
 end

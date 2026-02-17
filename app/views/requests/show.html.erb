@@ -4,89 +4,203 @@
   { label: @request.numbered_title }
 ] %>
 
-<div class="max-w-4xl mx-auto">
-  <%# Header with title and Asana status %>
-  <div class="mb-6">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-100"><%= @request.display_title %></h1>
-        <p class="mt-1 text-sm text-slate-400">
-          REQ-<%= @request.request_number %> &middot;
-          <%= @request.request_type&.humanize || "Unclassified" %> &middot;
-          Created <%= time_ago_in_words(@request.created_at) %> ago
-          <% if @request.estimate_days.present? %>
-            &middot; Est. <%= @request.estimate_days %> dev days
+<% if @request.draft? %>
+  <%# ===== DRAFT MODE: Plan review page with edit/preview toggle + agent chat ===== %>
+  <div class="max-w-4xl mx-auto flex flex-col" style="height: calc(100vh - 10rem);"
+       data-controller="plan-editor"
+       data-plan-editor-request-id-value="<%= @request.id %>"
+       data-plan-editor-update-url-value="<%= update_plan_request_path(@request) %>"
+       data-plan-editor-comment-url-value="<%= comment_request_path(@request) %>"
+       data-plan-editor-poll-url-value="<%= poll_request_path(@request) %>"
+       data-plan-editor-agent-available-value="<%= @request.agent_available? %>">
+
+    <%# Header with title, Send to Asana button, and Preview/Edit toggle %>
+    <div class="flex items-center justify-between mb-4 flex-shrink-0">
+      <h1 class="text-xl font-bold text-slate-100">Request Plan</h1>
+
+      <div class="flex items-center gap-3">
+        <%# Send to Asana / Finalize button %>
+        <%= button_to send_to_asana_request_path(@request),
+              method: :post,
+              class: "inline-flex items-center gap-2 rounded-lg bg-[#F06A6A] px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-[#e25b5b] transition-colors" do %>
+          <svg class="h-4 w-4" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="7.5" r="4.5"/>
+            <circle cx="8" cy="22.5" r="4.5"/>
+            <circle cx="24" cy="22.5" r="4.5"/>
+          </svg>
+          <% if @request.project.asana_configured? %>
+            Send to Asana
+          <% else %>
+            Finalize Task
           <% end %>
-        </p>
-      </div>
-
-      <% if @request.pushed_to_asana? %>
-        <a href="<%= @request.asana_url %>" target="_blank" rel="noopener"
-           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900/40 text-emerald-300 border border-emerald-700/50 text-sm font-medium hover:bg-emerald-900/60 transition-colors flex-shrink-0">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-          View in Asana
-        </a>
-      <% else %>
-        <span class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/50 text-slate-400 border border-slate-600/50 text-sm font-medium flex-shrink-0">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-          </svg>
-          Not pushed to Asana
-        </span>
-      <% end %>
-    </div>
-  </div>
-
-  <%# User Story card (if present) %>
-  <% if @request.user_story_persona.present? %>
-    <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
-      <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">User Story</h2>
-      <div class="text-slate-200 space-y-1">
-        <p><span class="text-slate-400">As a</span> <%= @request.user_story_persona %></p>
-        <% if @request.user_story_action.present? %>
-          <p><span class="text-slate-400">I want</span> <%= @request.user_story_action %></p>
         <% end %>
-        <% if @request.user_story_outcome.present? %>
-          <p><span class="text-slate-400">So that</span> <%= @request.user_story_outcome %></p>
-        <% end %>
+
+        <%# Preview/Edit pill toggle %>
+        <div class="inline-flex items-center rounded-full p-1 border border-slate-500/60 bg-slate-800/50">
+          <button type="button"
+                  data-plan-editor-target="previewButton"
+                  data-action="click->plan-editor#showPreview"
+                  class="relative z-10 inline-flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold tracking-wide uppercase transition-all duration-200 bg-cyan-600 text-white shadow-md">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Preview
+          </button>
+          <button type="button"
+                  data-plan-editor-target="editButton"
+                  data-action="click->plan-editor#showEdit"
+                  class="relative z-10 inline-flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold tracking-wide uppercase transition-all duration-200 text-slate-400 hover:text-slate-200">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit
+          </button>
+        </div>
       </div>
     </div>
-  <% end %>
 
-  <%# Summary card (for fix/chore) %>
-  <% if @request.summary.present? %>
-    <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
-      <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">Summary</h2>
-      <p class="text-slate-200"><%= @request.summary %></p>
-    </div>
-  <% end %>
-
-  <%# Full shaped plan content %>
-  <% if @request.plan_content.present? %>
-    <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
-      <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">Shaped Task Details</h2>
-      <div class="prose prose-invert prose-slate max-w-none text-sm">
-        <%= render_markdown(@request.plan_content) %>
+    <%# Plan content area - scrollable %>
+    <div class="mb-2 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden flex-1 min-h-0 flex flex-col">
+      <%# Preview mode (shown by default) %>
+      <div data-plan-editor-target="preview" class="p-5 overflow-y-auto flex-1 min-h-0">
+        <div data-plan-editor-target="previewContent" class="prose prose-invert prose-slate max-w-none text-sm">
+          <%= render_markdown(@request.plan_content || "") %>
+        </div>
       </div>
+
+      <%# Edit mode (hidden by default) %>
+      <textarea data-plan-editor-target="editor"
+                data-action="input->plan-editor#onEditorInput"
+                class="hidden w-full flex-1 min-h-0 p-5 bg-slate-800 text-slate-200 text-sm font-mono resize-y border-0 focus:outline-none focus:ring-0"><%= @request.plan_content %></textarea>
     </div>
-  <% end %>
 
-  <%# Original request %>
-  <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
-    <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">Original Request</h2>
-    <p class="text-slate-300 text-sm whitespace-pre-wrap"><%= @request.original_input %></p>
-  </div>
+    <%# Save status indicator %>
+    <div class="flex-shrink-0">
+      <span data-plan-editor-target="saveStatus" class="text-xs text-slate-500"></span>
+    </div>
 
-  <%# Action buttons %>
-  <div class="flex items-center gap-3 mb-8">
-    <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700 transition-colors" do %>
-      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-      </svg>
-      Create Another
+    <%# Agent follow-up section %>
+    <% if @request.agent_available? %>
+      <div class="flex-shrink-0 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+        <%# Agent processing indicator %>
+        <div data-plan-editor-target="agentStatus" class="hidden px-4 py-3">
+          <div class="flex items-center gap-2 text-sm text-slate-400">
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span data-plan-editor-target="agentStatusText">Agent is updating the plan...</span>
+          </div>
+        </div>
+
+        <%# Follow-up input %>
+        <form data-action="submit->plan-editor#sendMessage" class="flex gap-3 p-4">
+          <input type="text"
+                 data-plan-editor-target="chatInput"
+                 placeholder="Ask the agent to modify the plan..."
+                 class="flex-1 px-4 py-2 bg-slate-900 border border-slate-600 rounded-md text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+          <button type="submit"
+                  data-plan-editor-target="sendButton"
+                  class="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-md font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Send
+          </button>
+        </form>
+      </div>
     <% end %>
-    <%= link_to "Back to Project", project_path(@request.project), class: "text-sm text-slate-400 hover:text-white transition-colors" %>
+
+    <%# Back link %>
+    <div class="flex items-center gap-3 mt-3 flex-shrink-0">
+      <%= link_to "Back to Project", project_path(@request.project), class: "text-sm text-slate-400 hover:text-white transition-colors" %>
+    </div>
   </div>
-</div>
+
+<% else %>
+  <%# ===== SENT MODE: Confirmation / read-only view ===== %>
+  <div class="max-w-4xl mx-auto">
+    <%# Header with title and Asana status %>
+    <div class="mb-6">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-100"><%= @request.display_title %></h1>
+          <p class="mt-1 text-sm text-slate-400">
+            REQ-<%= @request.request_number %> &middot;
+            <%= @request.request_type&.humanize || "Unclassified" %> &middot;
+            Created <%= time_ago_in_words(@request.created_at) %> ago
+            <% if @request.estimate_days.present? %>
+              &middot; Est. <%= @request.estimate_days %> dev days
+            <% end %>
+          </p>
+        </div>
+
+        <% if @request.pushed_to_asana? %>
+          <a href="<%= @request.asana_url %>" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900/40 text-emerald-300 border border-emerald-700/50 text-sm font-medium hover:bg-emerald-900/60 transition-colors flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            View in Asana
+          </a>
+        <% else %>
+          <span class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/50 text-slate-400 border border-slate-600/50 text-sm font-medium flex-shrink-0">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            Finalized (no Asana configured)
+          </span>
+        <% end %>
+      </div>
+    </div>
+
+    <%# User Story card (if present) %>
+    <% if @request.user_story_persona.present? %>
+      <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
+        <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">User Story</h2>
+        <div class="text-slate-200 space-y-1">
+          <p><span class="text-slate-400">As a</span> <%= @request.user_story_persona %></p>
+          <% if @request.user_story_action.present? %>
+            <p><span class="text-slate-400">I want</span> <%= @request.user_story_action %></p>
+          <% end %>
+          <% if @request.user_story_outcome.present? %>
+            <p><span class="text-slate-400">So that</span> <%= @request.user_story_outcome %></p>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%# Summary card (for fix/chore) %>
+    <% if @request.summary.present? %>
+      <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
+        <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">Summary</h2>
+        <p class="text-slate-200"><%= @request.summary %></p>
+      </div>
+    <% end %>
+
+    <%# Full shaped plan content %>
+    <% if @request.plan_content.present? %>
+      <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
+        <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">Shaped Task Details</h2>
+        <div class="prose prose-invert prose-slate max-w-none text-sm">
+          <%= render_markdown(@request.plan_content) %>
+        </div>
+      </div>
+    <% end %>
+
+    <%# Original request %>
+    <div class="mb-6 bg-slate-800 rounded-lg border border-slate-700 p-5">
+      <h2 class="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">Original Request</h2>
+      <p class="text-slate-300 text-sm whitespace-pre-wrap"><%= @request.original_input %></p>
+    </div>
+
+    <%# Action buttons %>
+    <div class="flex items-center gap-3 mb-8">
+      <%= link_to new_request_path, class: "inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-cyan-700 transition-colors" do %>
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create Another
+      <% end %>
+      <%= link_to "Back to Project", project_path(@request.project), class: "text-sm text-slate-400 hover:text-white transition-colors" %>
+    </div>
+  </div>
+<% end %>
